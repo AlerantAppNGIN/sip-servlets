@@ -280,6 +280,12 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
     //the balancers names to send heartbeat to and our health info
 	private Set<SipLoadBalancer> sipLoadBalancers = new CopyOnWriteArraySet<SipLoadBalancer>();	
 	
+	//flags for controlling log messages on processRequest()'s DispatcherException catch branch:
+	//checkDeploymentsStateOnProcessRequestDispatcherException: if set to true, error log message written to log only if deploymentsReady is true
+	//deploymentsReady: if set to true, sip application deployments is finished
+	private boolean checkDeploymentsStateOnProcessRequestDispatcherException=false;
+	private boolean deploymentsReady=false;
+
 	/**
 	 * 
 	 */
@@ -292,6 +298,8 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 		sipNetworkInterfaceManager = new SipNetworkInterfaceManagerImpl(this);
 		maxMemory = Runtime.getRuntime().maxMemory() / (double) 1024;
 		congestionControlPolicy = CongestionControlPolicy.ErrorResponse;
+		checkDeploymentsStateOnProcessRequestDispatcherException=false;
+		deploymentsReady=false;
 	}
 	
 	/**
@@ -841,7 +849,15 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 				messageDispatcherFactory.getRequestDispatcher(sipServletRequest, this).
 					dispatchMessage(sipProvider, sipServletRequest);
 			} catch (DispatcherException e) {
-				logger.error("Unexpected exception while processing request " + request,e);
+	            if(checkDeploymentsStateOnProcessRequestDispatcherException){
+	                if(deploymentsReady==false){
+	                    logger.debug("Unexpected exception while processing request, but not all sip application deployments are ready (if there is any), so this might be an intermittent error: " + request,e);
+	                }else{
+	                    logger.error("Unexpected exception while processing request " + request,e);
+	                }
+	            }else{
+			        logger.error("Unexpected exception while processing request " + request,e);
+	            }
 				// Sends an error response if the subsequent request is not an ACK (otherwise it violates RF3261) and stops processing.				
 				if(!Request.ACK.equalsIgnoreCase(requestMethod)) {
 					MessageDispatcher.sendErrorResponse(this, e.getErrorCode(), sipServletRequest, sipProvider);
@@ -856,7 +872,7 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 				return;
 			}
 		} catch (Throwable e) {
-			logger.error("Unexpected exception while processing request " + request,e);
+		    logger.error("Unexpected exception while processing request " + request,e);
 			// Sends a 500 Internal server error if the subsequent request is not an ACK (otherwise it violates RF3261) and stops processing.				
 			if(!Request.ACK.equalsIgnoreCase(request.getMethod())) {
 				MessageDispatcher.sendErrorResponse(this, Response.SERVER_INTERNAL_ERROR, requestTransaction, request, sipProvider);
@@ -864,6 +880,15 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 			return;
 		}
 	}
+
+    public void setDeploymentsReady(){
+        this.deploymentsReady=true;
+    }
+	
+    public void setCheckDeploymentsStateOnProcessRequestDispatcherException(){
+        this.checkDeploymentsStateOnProcessRequestDispatcherException=true;
+    }
+	
 	
 	private void callbackCongestionControlListener(boolean triggered, CongestionControlEvent congestionControlEvent) {
 		for (SipContext sipContext : applicationDeployed.values()) {

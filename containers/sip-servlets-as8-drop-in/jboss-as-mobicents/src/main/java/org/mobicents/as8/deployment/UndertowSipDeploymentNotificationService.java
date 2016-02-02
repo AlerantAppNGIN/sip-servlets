@@ -26,31 +26,31 @@ import java.util.Map;
 
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceController;
-import org.jboss.msc.service.ServiceController.Mode;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.mobicents.as8.SipConnectorService;
+import org.mobicents.as8.SipServerService;
+import org.mobicents.servlet.sip.core.SipApplicationDispatcherImpl;
 
 /**
- * This service will start up and activate sip connector(s) AFTER all sip deployments finished in order to prevent the sip server to handle incoming messages before sip applications ready.
+ * This service will start up and notify SipApplicationDispatcherImpl AFTER all sip deployments finished in order to handle error log messages caused by incoming messages processed before sip applications ready.
  *
  * @author kakonyi.istvan@alerant.hu
  */
-public class UndertowSipConnectorActivateService implements Service<UndertowSipConnectorActivateService> {
-    public static final ServiceName SERVICE_NAME = ServiceName.of("UndertowSipConnectorActivateService");
+public class UndertowSipDeploymentNotificationService implements Service<UndertowSipDeploymentNotificationService> {
+    public static final ServiceName SERVICE_NAME = ServiceName.of("UndertowSipDeploymentNotificationService");
 
-    private Map<ServiceName,ServiceController<SipConnectorService>> serviceControllers = null;
+    private Map<ServiceName,ServiceController<SipServerService>> serviceControllers = null;
 
-    public void addServiceController(ServiceController<SipConnectorService> serviceController){
+    public void addServiceController(ServiceController<SipServerService> serviceController){
         if(serviceControllers == null){
-            serviceControllers = new LinkedHashMap<ServiceName,ServiceController<SipConnectorService>>();
+            serviceControllers = new LinkedHashMap<ServiceName,ServiceController<SipServerService>>();
         }
         this.serviceControllers.put(serviceController.getName(),serviceController);
     }
 
-    public ServiceController<SipConnectorService> getServiceController(ServiceName serviceName){
+    public ServiceController<SipServerService> getServiceController(ServiceName serviceName){
         if(serviceControllers == null){
             return null;
         }
@@ -58,17 +58,22 @@ public class UndertowSipConnectorActivateService implements Service<UndertowSipC
     }
 
     @Override
-    public UndertowSipConnectorActivateService getValue() throws IllegalStateException, IllegalArgumentException {
+    public UndertowSipDeploymentNotificationService getValue() throws IllegalStateException, IllegalArgumentException {
         return this;
     }
 
     @Override
     public void start(StartContext context) throws StartException {
         if(serviceControllers!=null){
-            for(ServiceController<SipConnectorService> serviceController : serviceControllers.values()){
-                //activate the sip connector:
-                if(serviceController!=null && serviceController.getMode() != Mode.ACTIVE){
-                    serviceController.setMode(Mode.ACTIVE);
+            for(ServiceController<SipServerService> serviceController : serviceControllers.values()){
+                //notify SipApplicationDispatcherImpl throught the sip server service:
+                if(serviceController!=null){
+                    if(serviceController.getValue()!=null && serviceController.getValue().getSipService()!=null && serviceController.getValue().getSipService().getSipApplicationDispatcher()!=null &&
+                                    serviceController.getValue().getSipService().getSipApplicationDispatcher() instanceof SipApplicationDispatcherImpl){
+
+                        ((SipApplicationDispatcherImpl)serviceController.getValue().getSipService().getSipApplicationDispatcher()).setDeploymentsReady();
+
+                    }
                 }
             }
         }

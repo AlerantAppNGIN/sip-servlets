@@ -55,6 +55,7 @@ import org.mobicents.servlet.sip.annotation.ConcurrencyControlMode;
 import org.mobicents.servlet.sip.core.ExtendedListeningPoint;
 import org.mobicents.servlet.sip.core.MobicentsExtendedListeningPoint;
 import org.mobicents.servlet.sip.core.SipApplicationDispatcher;
+import org.mobicents.servlet.sip.core.SipApplicationDispatcherImpl;
 import org.mobicents.servlet.sip.core.SipService;
 import org.mobicents.servlet.sip.core.message.OutboundProxy;
 import org.mobicents.servlet.sip.dns.MobicentsDNSResolver;
@@ -82,6 +83,7 @@ public class SipStandardService implements SipService {
     public static final String SERVER_HEADER = "org.mobicents.servlet.sip.SERVER_HEADER";
     public static final String USER_AGENT_HEADER = "org.mobicents.servlet.sip.USER_AGENT_HEADER";
     public static final String JVM_ROUTE = "jvmRoute";
+    public static final String CHECK_DEPLOYMENTS_STATE_ON_PROCESSREQUESTS_DISPATCHEREXCEPTION_IN_SIPAPPLICATIONDISPATCHERIMPL="org.mobicents.servlet.sip.CHECK_DEPLOYMENTS_STATE_ON_PROCESSREQUESTS_DISPATCHEREXCEPTION_IN_SIPAPPLICATIONDISPATCHERIMPL";
 
     // the sip application dispatcher class name defined in the server.xml
     protected String sipApplicationDispatcherClassName = "org.mobicents.servlet.sip.core.SipApplicationDispatcherImpl";
@@ -282,6 +284,11 @@ public class SipStandardService implements SipService {
         sipApplicationDispatcher.setBypassRequestExecutor(bypassRequestExecutor);
         sipApplicationDispatcher.setBypassResponseExecutor(bypassResponseExecutor);
         sipApplicationDispatcher.setSipStack(sipStack);
+        if("true".equalsIgnoreCase(sipStackProperties.getProperty(SipStandardService.CHECK_DEPLOYMENTS_STATE_ON_PROCESSREQUESTS_DISPATCHEREXCEPTION_IN_SIPAPPLICATIONDISPATCHERIMPL))){
+            if(sipApplicationDispatcher instanceof SipApplicationDispatcherImpl){
+                ((SipApplicationDispatcherImpl)sipApplicationDispatcher).setCheckDeploymentsStateOnProcessRequestDispatcherException();
+            }
+        }
         sipApplicationDispatcher.init();
 
         // kakonyii: I think this code is not necessary as we always start connectors programmatically during sip subsystem

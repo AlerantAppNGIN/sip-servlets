@@ -42,7 +42,7 @@ import org.mobicents.servlet.sip.undertow.SipStandardService;
  *         jboss as8 (wildfly) by:
  * @author kakonyi.istvan@alerant.hu
  */
-class SipServerService implements SipServer, Service<SipServer> {
+public class SipServerService implements SipServer, Service<SipServer> {
     private static final Logger logger = Logger.getLogger(SipServerService.class);
     // FIXME: josemrecio - settle on using the proper name
     private static final String JBOSS_SIP = "jboss.sip";
