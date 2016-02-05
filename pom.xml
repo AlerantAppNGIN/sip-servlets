@@ -96,6 +96,9 @@
 		<mobicents.commons.version>1.0.130</mobicents.commons.version>
 		<tomcat-7.version>7.0.64</tomcat-7.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!--override jain-sip to appngin version -->
+		<jain-sip-api.version>1.2.0-appngin-1</jain-sip-api.version>
+		<jain-sip-ri.version>1.2.259-appngin-1</jain-sip-ri.version>
 	</properties>
 
 	<dependencies>
