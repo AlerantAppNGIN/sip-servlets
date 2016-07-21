@@ -28,7 +28,7 @@
     </properties>
 
     <resources>
-        <resource-root path="jboss-as7-mobicents-4.0.29-appngin-1.jar"/>
+        <resource-root path="jboss-as7-mobicents-4.0.29-appngin-2.jar"/>
         <!-- Insert resources here -->
     </resources>
 
