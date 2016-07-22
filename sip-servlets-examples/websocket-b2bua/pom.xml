@@ -3,13 +3,13 @@
 	<parent>
 		<groupId>org.mobicents.servlet.sip.examples</groupId>
 		<artifactId>sip-servlets-examples-parent</artifactId>
-		<version>4.0.29-appngin-2-SNAPSHOT</version>
+		<version>4.0.29-appngin-2</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<groupId>org.mobicents.servlet.sip.examples</groupId>
 	<artifactId>websockets-sip-servlet</artifactId>
 	<packaging>war</packaging>
-	<version>4.0.29-appngin-2-SNAPSHOT</version>
+	<version>4.0.29-appngin-2</version>
 	<name>Websockets Example</name>
 	<url>http://www.mobicents.org/examples.html</url>
 	<build>
