@@ -122,6 +122,7 @@ enum Attribute {
     SUBSTITUTION(Constants.SUBSTITUTION),
     T2_INTERVAL(Constants.T2_INTERVAL),
     T4_INTERVAL(Constants.T4_INTERVAL),
+    TAG_HASH_MAX_LENGTH(Constants.TAG_HASH_MAX_LENGTH),
     TARGET_VM(Constants.TARGET_VM),
     TIMER_D_INTERVAL(Constants.TIMER_D_INTERVAL),
     TRIM_SPACES(Constants.TRIM_SPACES),
@@ -137,7 +138,7 @@ enum Attribute {
     WEBDAV(Constants.WEBDAV),
     X_POWERED_BY(Constants.X_POWERED_BY),
     ENABLE_LOOKUPS(Constants.ENABLE_LOOKUPS),
-    VALUE(Constants.VALUE),
+    VALUE(Constants.VALUE)
     ;
 
     private final String name;

@@ -110,6 +110,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         SipDefinition.BASE_TIMER_INTERVAL.validateAndSet(operation, model);
         SipDefinition.T2_INTERVAL.validateAndSet(operation, model);
         SipDefinition.T4_INTERVAL.validateAndSet(operation, model);
+        SipDefinition.TAG_HASH_MAX_LENGTH.validateAndSet(operation, model);
         SipDefinition.TIMER_D_INTERVAL.validateAndSet(operation, model);
         SipDefinition.DIALOG_PENDING_REQUEST_CHECKING.validateAndSet(operation, model);
         SipDefinition.DNS_SERVER_LOCATOR_CLASS.validateAndSet(operation, model);
@@ -214,7 +215,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final int callIdMaxLength = callIdMaxLengthModel.isDefined() ? callIdMaxLengthModel.asInt() : -1;
 
         final ModelNode tagHashMaxLengthModel = SipDefinition.TAG_HASH_MAX_LENGTH.resolveModelAttribute(context, fullModel);
-        final int tagHashMaxLength = callIdMaxLengthModel.isDefined() ? tagHashMaxLengthModel.asInt() : -1;
+        final int tagHashMaxLength = tagHashMaxLengthModel.isDefined() ? tagHashMaxLengthModel.asInt() : -1;
 
         final ModelNode canceledTimerTasksPurgePeriodModel = SipDefinition.CANCELED_TIMER_TASKS_PURGE_PERIOD
                 .resolveModelAttribute(context, fullModel);

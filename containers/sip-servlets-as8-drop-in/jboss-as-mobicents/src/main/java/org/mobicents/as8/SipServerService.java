@@ -246,6 +246,7 @@ public class SipServerService implements SipServer, Service<SipServer> {
         sipService.setBackToNormalMemoryThreshold(backToNormalMemoryThreshold);
         sipService.setCongestionControlPolicy(congestionControlPolicy);
         sipService.setOutboundProxy(outboundProxy);
+        sipService.setTagHashMaxLength(tagHashMaxLength);
         sipService.setName(JBOSS_SIP);
 
         // FIXME: kakonyii
