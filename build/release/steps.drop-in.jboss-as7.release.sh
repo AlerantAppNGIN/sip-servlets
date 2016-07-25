@@ -1,5 +1,5 @@
 #!/bin/sh -e
-BUILD_DIR=./build/release/target/mss-as7
+BUILD_DIR=./build/release/target/restcomm-sip-servlets-as7
 CHECKOUT_DIR=./build/release/target/dependencies
 #
 # set AS7_TAG as name of the AS7 release/tag
@@ -7,7 +7,7 @@ AS7_FINAL_NAME=jboss-as-7.2.0.Final
 #AS7_NAME=jboss-as-7.2.0.Final
 AS7_TAG=7.2.0.Final	
 VERSION=$1
-MSS_FINAL_NAME=mss-$VERSION-$AS7_FINAL_NAME
+MSS_FINAL_NAME=restcomm-sip-servlets-$VERSION-$AS7_FINAL_NAME
 
 rm -rf $BUILD_DIR
 mkdir -p $BUILD_DIR
@@ -72,7 +72,7 @@ patch -p0 --verbose < ../../../../../containers/sip-servlets-as7-drop-in/patches
 cd ..
 
 
-ant extract-mms -f ../../build.xml -Dmss.home=./target/mss-as7/$MSS_FINAL_NAME
+ant extract-mms -f ../../build.xml -Dmss.home=./target/restcomm-sip-servlets-as7/$MSS_FINAL_NAME
 #ant build-mobicents-sip-load-balancer -f ../../build.xml -Dmss.home=./target/mss-as7/$MSS_FINAL_NAME
 
 zip -r $MSS_FINAL_NAME.zip $MSS_FINAL_NAME

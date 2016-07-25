@@ -97,6 +97,7 @@ import org.mobicents.servlet.sip.address.AddressImpl;
 import org.mobicents.servlet.sip.address.AddressImpl.ModifiableRule;
 import org.mobicents.servlet.sip.address.SipURIImpl;
 import org.mobicents.servlet.sip.annotation.ConcurrencyControlMode;
+import org.mobicents.servlet.sip.core.MobicentsExtendedListeningPoint;
 import org.mobicents.servlet.sip.core.MobicentsSipServlet;
 import org.mobicents.servlet.sip.core.RoutingState;
 import org.mobicents.servlet.sip.core.SipApplicationDispatcher;
@@ -424,19 +425,40 @@ public class SipSessionImpl implements MobicentsSipSession {
 							userName = ((javax.sip.address.SipURI)uri).getUser();
 						}
 						if(sipFactory.isUseLoadBalancer()) {
-							SipLoadBalancer loadBalancerToUse = sipFactory.getLoadBalancerToUse();
-							javax.sip.address.SipURI sipURI = SipFactoryImpl.addressFactory.createSipURI(userName, loadBalancerToUse.getAddress().getHostAddress());
-							sipURI.setHost(loadBalancerToUse.getAddress().getHostAddress());
-							sipURI.setPort(loadBalancerToUse.getSipPort());
-
-							// TODO: Is this enough or we must specify the transport somewhere?
-							// We can leave it like this. It will be updated if needed in the send() method
-							sipURI.setTransportParam(ListeningPoint.UDP);
-							
-							javax.sip.address.Address contactAddress = SipFactoryImpl.addressFactory.createAddress(sipURI);
-							contactHeader = SipFactoryImpl.headerFactory.createContactHeader(contactAddress);													
-						} else {											
-
+							// https://github.com/RestComm/sip-servlets/issues/111
+							MobicentsExtendedListeningPoint listeningPoint = JainSipUtils.findListeningPoint(sipFactory.getSipNetworkInterfaceManager(), methodRequest, outboundInterface);
+							if(listeningPoint != null && listeningPoint.isUseLoadBalancer()) {
+								// https://github.com/RestComm/sip-servlets/issues/137
+								SipLoadBalancer loadBalancerToUse = null; 
+								if(listeningPoint.getLoadBalancer() == null) {
+									loadBalancerToUse = sipFactory.getLoadBalancerToUse();
+									if(logger.isDebugEnabled()) {
+										logger.debug("Using listeningPoint " + listeningPoint + " for global load balancer " + sipFactory.getLoadBalancerToUse());
+									}
+								} else {
+									loadBalancerToUse = listeningPoint.getLoadBalancer();
+									if(logger.isDebugEnabled()) {
+										logger.debug("Using listeningPoint " + listeningPoint + " for connector specific load balancer " + listeningPoint.getLoadBalancer());
+									}
+								}
+								
+								javax.sip.address.SipURI sipURI = SipFactoryImpl.addressFactory.createSipURI(userName, loadBalancerToUse.getAddress().getHostAddress());
+								sipURI.setHost(loadBalancerToUse.getAddress().getHostAddress());
+								sipURI.setPort(loadBalancerToUse.getSipPort());
+	
+								// TODO: Is this enough or we must specify the transport somewhere?
+								// We can leave it like this. It will be updated if needed in the send() method
+								sipURI.setTransportParam(ListeningPoint.UDP);
+								
+								javax.sip.address.Address contactAddress = SipFactoryImpl.addressFactory.createAddress(sipURI);
+								contactHeader = SipFactoryImpl.headerFactory.createContactHeader(contactAddress);
+							} else {
+								if(logger.isDebugEnabled()) {
+									logger.debug("Not Using load balancer as it is not enabled for listeningPoint " + listeningPoint);
+								}
+								contactHeader = JainSipUtils.createContactHeader(sipFactory.getSipNetworkInterfaceManager(), methodRequest, displayName, userName, outboundInterface);
+							}
+						} else {
 							contactHeader = JainSipUtils.createContactHeader(sipFactory.getSipNetworkInterfaceManager(), methodRequest, displayName, userName, outboundInterface);
 						}
 						methodRequest.setHeader(contactHeader);
@@ -926,13 +948,6 @@ public class SipSessionImpl implements MobicentsSipSession {
 			logger.info("Invalidating the sip session " + key);
 		}
 				
-		// No need for checks after JSR 289 PFD spec
-		//checkInvalidation();
-		if(sipSessionAttributeMap != null) {
-			for (String key : sipSessionAttributeMap.keySet()) {
-				removeAttribute(key, true);
-			}
-		}
 		
 		final MobicentsSipApplicationSession sipApplicationSession = getSipApplicationSession();
         SipManager manager = sipApplicationSession.getSipContext().getSipManager();
@@ -947,12 +962,41 @@ public class SipSessionImpl implements MobicentsSipSession {
         		if(logger.isDebugEnabled()) {
             		logger.debug("sip session " + key + " has no derived sessions removing it from the manager");
             	}
+        		// No need for checks after JSR 289 PFD spec
+         		//checkInvalidation();
+         		if(sipSessionAttributeMap != null) {
+         			for (String key : sipSessionAttributeMap.keySet()) {
+         				removeAttribute(key, true);
+         			}
+         		}
 				manager.removeSipSession(key);		
 				sipApplicationSession.getSipContext().getSipSessionsUtil().removeCorrespondingSipSession(key);
         	} else {
-        		if(logger.isDebugEnabled()) {
-            		logger.debug("sip session " + key + " is the parent session, not removing it from the manager yet as there is still derived sessions");
+    			if(logger.isDebugEnabled()) {
+            		logger.debug("sip session " + key + " is the parent session, checking derived sessions");
             	}
+    			if(derivedSipSessions != null) {
+    				for (MobicentsSipSession session: derivedSipSessions.values()) {
+    					if(logger.isDebugEnabled()) {
+    						logger.debug("derived session " + session + " " + isValidInternal + " " + readyToInvalidate + " " + state);
+    					}
+    					if(session.isReadyToInvalidateInternal() && state == State.TERMINATED) {
+    						if(logger.isDebugEnabled()) {
+        						logger.debug("Invalidating derived sipsession " + session);
+        					}
+    						session.invalidate(true);
+    					}
+    				}
+    			}
+    			// No need for checks after JSR 289 PFD spec
+         		//checkInvalidation();
+         		if(sipSessionAttributeMap != null) {
+         			for (String key : sipSessionAttributeMap.keySet()) {
+         				removeAttribute(key, true);
+         			}
+         		}
+    			manager.removeSipSession(key);		
+				sipApplicationSession.getSipContext().getSipSessionsUtil().removeCorrespondingSipSession(key);
         	}
         } else {
         	// https://github.com/Mobicents/sip-servlets/issues/41
@@ -960,12 +1004,17 @@ public class SipSessionImpl implements MobicentsSipSession {
         		logger.debug("sip session " + key + " is a derived session, so not removing it from the manager, only from the parent session " + parentSipSession.getKey());
         	}
     		// Handle forking case to remove the session only if the parent session is not valid anymore otherwise remove only from the list of derived sessions
-    		MobicentsSipSession removedSession = parentSipSession.removeDerivedSipSession(key.getToTag());
+    		MobicentsSipSession removedSession = null;
+			try {
+				removedSession = parentSipSession.removeDerivedSipSession(SessionManagerUtil.parseSipSessionKey(key.toString()).getToTag());
+			} catch (ParseException e) {
+				logger.error("couldn't parse " + key);
+			}
 			if(logger.isDebugEnabled() && removedSession != null) {
 				logger.debug("removed derived sip session " + key + " from the list of derived sessions from the parent session " + parentSipSession.getKey());
 			}
         }
-		
+        
 		/*
          * Compute how long this session has been alive, and update
          * session manager's related properties accordingly
@@ -1053,6 +1102,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 		sipSessionAttributeMap = null;
 //		key = null;
 		if(sessionCreatingDialog != null) {
+			cleanDialogInformation(true);
 			// terminating dialog to make sure there is not retention, if the app didn't send a BYE for invite tx by example
 			if(!DialogState.TERMINATED.equals(sessionCreatingDialog.getState())) {
 				sessionCreatingDialog.delete();
@@ -1511,29 +1561,84 @@ public class SipSessionImpl implements MobicentsSipSession {
 		
 		updateReadyToInvalidate(transaction);
 		// nullify the sessionCreatingTransactionRequest only after updateReadyToInvalidate as it is used for error response checking
-		if(sessionCreatingTransactionRequest != null && 				
-				transaction.equals(sessionCreatingTransactionRequest.getTransaction())) {
-			sessionCreatingTransactionRequest.cleanUp();
-			// https://telestax.atlassian.net/browse/MSS-153 improve performance by cleaning the request for dialog based requests
-			// or proxy case or dialog creating methods
-			if(sessionCreatingDialog != null || proxy != null || JainSipUtils.DIALOG_CREATING_METHODS.contains(sessionCreatingTransactionRequest.getMethod())) {
-				sessionCreatingTransactionRequest = null;
+		
+		final String branchId = transaction.getBranchId();
+		if(sessionCreatingTransactionRequest != null && 
+				 branchId != null) {
+			
+			// https://github.com/RestComm/sip-servlets/issues/101 fix for NPE happening due to concurrent behavior cleaning the transaction 
+			final Transaction sessionCreatingTransactionRequestTransaction = sessionCreatingTransactionRequest.getTransaction();
+			String sessionCreatingTransactionRequestTransactionBranchId = null;
+			if(sessionCreatingTransactionRequestTransaction != null) {
+				sessionCreatingTransactionRequestTransactionBranchId = sessionCreatingTransactionRequestTransaction.getBranchId();
+			}
+			final String sessionCreatingTransactionRequestMethod = sessionCreatingTransactionRequest.getMethod();
+			
+			if(sessionCreatingTransactionRequestTransaction != null &&  
+					branchId.equals(sessionCreatingTransactionRequestTransactionBranchId)) {
+			
+				if(logger.isDebugEnabled()) {
+					logger.debug("Session " + key + ": cleaning up "+ sessionCreatingTransactionRequest 
+							+ " since transaction " + transaction + " with branch id " + branchId 
+							+ " is the same as sessionCreatingRequestTransaction " +  sessionCreatingTransactionRequestTransaction
+							+ " with branch id " + sessionCreatingTransactionRequestTransactionBranchId
+							+ " and method " + sessionCreatingTransactionRequestMethod);
+				}
+				sessionCreatingTransactionRequest.cleanUp();
+				// https://telestax.atlassian.net/browse/MSS-153 improve performance by cleaning the request for dialog based requests
+				// or proxy case or dialog creating methods
+				if(sessionCreatingDialog != null || proxy != null || JainSipUtils.DIALOG_CREATING_METHODS.contains(sessionCreatingTransactionRequestMethod)) {
+					if(logger.isDebugEnabled() && sessionCreatingTransactionRequest != null) {
+						logger.debug("nullifying  sessionCreatingTransactionRequest" + sessionCreatingTransactionRequest 
+								+ " from Session " + key);
+					}
+					sessionCreatingTransactionRequest = null;
+				}
 			}
 		}
 	}
 	
-	public void cleanDialogInformation() {
+	public void cleanDialogInformation(boolean terminate) {
 		if(logger.isDebugEnabled()) {
 			logger.debug("cleanDialogInformation "+ sessionCreatingDialog);
+			logger.debug("cleanDialogInformation terminate "+ terminate);
 		}
 		if(sessionCreatingDialog != null && sessionCreatingDialog.getApplicationData() != null && 
 				((TransactionApplicationData)sessionCreatingDialog.getApplicationData()).getSipServletMessage() != null) {
 			TransactionApplicationData dialogAppData = ((TransactionApplicationData)sessionCreatingDialog.getApplicationData());
 			SipServletMessageImpl sipServletMessage = dialogAppData.getSipServletMessage();
+			if(logger.isDebugEnabled()) {
+				logger.debug("trying to cleanup message "+ sipServletMessage + " and related dialog app data " + dialogAppData);
+				logger.debug("is dialog established " + (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) && isAckReceived(((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber())));
+				logger.debug("is dialog creating method " + JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod()));
+				logger.debug("is dialog terminating method " + JainSipUtils.DIALOG_TERMINATING_METHODS.contains(sipServletMessage.getMethod()));
+			}
+			boolean cleanDialog = false;
+			if((Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) && isAckReceived(((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber()))) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("cleaning INVITE and ack received for it for dialog "+ sessionCreatingDialog);
+				}
+				cleanDialog = true;
+			}
+			if(!Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) {
+				if(JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod())) {
+					if(logger.isDebugEnabled()) {
+						logger.debug("cleaning non INVITE Dialog creating method " + sipServletMessage.getMethod());
+					}
+					cleanDialog = true;
+				} 
+				// Dialog Terminating request will be cleaned up on invalidation
+			}
+			if(logger.isDebugEnabled()) {
+				logger.debug("cleanDialog "+ cleanDialog);
+				logger.debug("cleanDialog terminate "+ terminate);
+			}
 			// https://telestax.atlassian.net/browse/MSS-153  
-			// if we are not an INVITE Based Dialog or we are INVITE but ACK have been received, we can clean up the app data of its servletmessage to clean memory
-			if(!Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) ||
-				(Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) && isAckReceived(((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber()))) {
+			// if we are not an INVITE Based Dialog (but still dialog creating or terminating) or we are INVITE but ACK have been received, we can clean up the app data of its servletmessage to clean memory
+			if(cleanDialog || terminate) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("cleanDialogInformation app data and message"+ sessionCreatingDialog);
+				}
 				dialogAppData.cleanUpMessage();
 				dialogAppData.cleanUp();
 				if(logger.isDebugEnabled()) {
@@ -1779,6 +1884,13 @@ public class SipSessionImpl implements MobicentsSipSession {
     	// 3. A SipSession acting as a UAC transitions from the EARLY state back to 
     	// the INITIAL state on account of receiving a non-2xx final response (6.2.1 Relationship to SIP Dialogs, point 4)
     	// and has not initiated any new requests (does not have any pending transactions)."
+    	if(logger.isDebugEnabled()) {
+    		if(ongoingTransactions != null) {
+    			logger.debug("ongoingTransactions " + ongoingTransactions.isEmpty() + " for sipsession " + key);
+    		} else {
+    			logger.debug("ongoingTransactions " + null + " for sipsession " + key);
+    		}
+    	}
     	if(!readyToInvalidate && (ongoingTransactions == null || ongoingTransactions.isEmpty()) && 
     			transaction instanceof ClientTransaction && getProxy() == null && 
     			state != null && state.equals(State.INITIAL) && 
@@ -2056,10 +2168,22 @@ public class SipSessionImpl implements MobicentsSipSession {
 	 * @see org.mobicents.servlet.sip.core.session.MobicentsSipSession#findDerivedSipSession(java.lang.String)
 	 */
 	public MobicentsSipSession findDerivedSipSession(String toTag) {
+		dumpDerivedSipSessions();
 		if(derivedSipSessions != null) {
 			return derivedSipSessions.get(toTag);
 		}
 		return null;
+	}
+	
+	private void dumpDerivedSipSessions() {
+		if(logger.isDebugEnabled()) {
+			logger.debug("derived sessions contained in the following sip session " + key);
+			if(derivedSipSessions != null) {
+				for (MobicentsSipSession session: derivedSipSessions.values()) {
+					logger.debug("derived session " + session + " " + isValidInternal + " " + readyToInvalidate + " " + state);
+				}
+			}
+		}
 	}
 	
 	/*
@@ -2518,6 +2642,9 @@ public class SipSessionImpl implements MobicentsSipSession {
      */
     @Override
     public void setBypassLoadBalancer(boolean bypassLoadBalancer) {
+    	if(logger.isDebugEnabled()) {
+			logger.debug("setting bypassLoadBalancer: " + bypassLoadBalancer + " on the sip session " + key);
+		}
         this.bypassLoadBalancer = bypassLoadBalancer;
     }
     /* (non-Javadoc)
@@ -2532,6 +2659,9 @@ public class SipSessionImpl implements MobicentsSipSession {
      */
     @Override
     public void setBypassProxy(boolean bypassProxy) {
+    	if(logger.isDebugEnabled()) {
+			logger.debug("setting bypassProxy: " + bypassProxy + " on the sip session " + key);
+		}
         this.bypassProxy = bypassProxy;
     }
     /* (non-Javadoc)

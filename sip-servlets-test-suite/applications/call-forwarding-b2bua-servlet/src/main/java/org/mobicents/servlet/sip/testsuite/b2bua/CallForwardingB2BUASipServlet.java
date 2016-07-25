@@ -729,7 +729,11 @@ public class CallForwardingB2BUASipServlet extends SipServlet implements SipErro
 			throws ServletException, IOException {
 		logger.info("Got : " + sipServletResponse.getStatus() + " "
 				+ sipServletResponse.getReasonPhrase());		
-						
+			
+		if(sipServletResponse.getStatus() == 487) {
+			sipServletResponse.getSession().invalidate();
+			return;
+		}
 		//create and sends the error response for the first call leg
 		if(sipServletResponse.getStatus() == SipServletResponse.SC_UNAUTHORIZED || 
 				sipServletResponse.getStatus() == SipServletResponse.SC_PROXY_AUTHENTICATION_REQUIRED) {
@@ -779,6 +783,12 @@ public class CallForwardingB2BUASipServlet extends SipServlet implements SipErro
 		SipServletRequest originalRequest = (SipServletRequest) sipServletResponse.getSession().getAttribute("originalRequest");
 		String fromURI = sipServletResponse.getFrom().getURI().toString();
 		String toURI = sipServletResponse.getTo().getURI().toString();
+		
+		if(sipServletResponse.getStatus() == 183) {
+			logger.info("Sending back cancel on original request");
+			sipServletResponse.getRequest().createCancel().send();
+			return;
+		}
 		
 		if(!originalRequest.isCommitted() && !fromURI.contains("forking") && !toURI.contains("forking")) {
 			SipServletResponse responseToOriginalRequest = originalRequest.createResponse(sipServletResponse.getStatus());
@@ -843,8 +853,8 @@ public class CallForwardingB2BUASipServlet extends SipServlet implements SipErro
 
 	public void sessionReadyToInvalidate(SipApplicationSessionEvent ev) {
 		// Issue http://code.google.com/p/mobicents/issues/detail?id=2246
-		String fromName = ev.getApplicationSession().getAttribute("double-callback-test").toString();
-		if(fromName.contains("true")) {
+		Boolean fromName = (Boolean) ev.getApplicationSession().getAttribute("double-callback-test");
+		if(fromName != null && fromName) {
 			boolean doubleCallback = ev.getApplicationSession().getAttribute("double") != null;
 			if(doubleCallback) {
 				try {

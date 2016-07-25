@@ -64,10 +64,10 @@ public interface MobicentsSipSession extends SipSession, SipSessionExt {
 	void addDerivedSipSessions(MobicentsSipSession derivedSession);
 	/**
 	 * Removes the derived sip session identified by the To tag in parameter
-	 * @param toTag the to Tag identifying the sip session to remove
+	 * @param key the key identifying the sip session to remove
 	 * @return the removed derived sip session
 	 */
-	public MobicentsSipSession removeDerivedSipSession(String toTag);	
+	public MobicentsSipSession removeDerivedSipSession(String key);	
 	/**
 	 * Find the derived sip session identified by its to tag
 	 * @param toTag the to Tag identifying the sip session to remove
@@ -90,7 +90,7 @@ public interface MobicentsSipSession extends SipSession, SipSessionExt {
 	void removeOngoingTransaction(Transaction transaction);
 	void addOngoingTransaction(Transaction transaction);
 	
-	void cleanDialogInformation();
+	void cleanDialogInformation(boolean terminate);
 
 	Serializable getStateInfo();
 	void setStateInfo(Serializable stateInfo);

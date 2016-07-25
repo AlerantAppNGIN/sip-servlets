@@ -199,10 +199,14 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		}
 		isFinalResponseGenerated = false;
 	}
-
+        
 	@Override
 	public ModifiableRule getModifiableRule(String headerName) {
-
+                ModifiableRule overriden = retrieveModifiableOverriden();
+                if ( overriden != null ) {
+                    return overriden;
+                }
+                
 		String hName = getFullHeaderName(headerName);
 
 		/*
@@ -1116,6 +1120,9 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 					throw new IllegalArgumentException("couldn't parse the outbound interface " + outboundInterface, e);
 				}
 				matchingListeningPoint = sipNetworkInterfaceManager.findMatchingListeningPoint(outboundInterfaceURI, false);
+				if(logger.isDebugEnabled()) {
+					logger.debug("Matching listening point " + matchingListeningPoint);
+				}
 			}
 			if(matchingListeningPoint == null) {
 				if(logger.isDebugEnabled()) {
@@ -1123,6 +1130,9 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 				}
 				matchingListeningPoint = sipNetworkInterfaceManager.findMatchingListeningPoint(
 						transport, false);
+				if(logger.isDebugEnabled()) {
+					logger.debug("Matching listening point " + matchingListeningPoint);
+				}
 			}
 			
 			final SipProvider sipProvider = matchingListeningPoint.getSipProvider();
@@ -1169,17 +1179,28 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 				// if we are in a HA configuration and the request is an out of dialog request
 				if(isInitial() || dialog == null) {		
 				    //Issue: https://code.google.com/p/sipservlets/issues/detail?id=284
+				    //Issue: https://telestax.atlassian.net/browse/MSS-121
+					if(logger.isDebugEnabled()) {
+						logger.debug("bypassLoadBalancer: " + session.getBypassLoadBalancer() + ", sipFactoryImpl UseLoadBalancer: " + sipFactoryImpl.isUseLoadBalancer()
+								+ ", matchingListeningPoint: " + matchingListeningPoint);
+					}
 					if(!session.getBypassLoadBalancer() && sipFactoryImpl.isUseLoadBalancer()) {
-						sipFactoryImpl.addLoadBalancerRouteHeader(request);
-						addDNSRoute = false;
-						if(logger.isDebugEnabled()) {
-							logger.debug("adding route to Load Balancer since we are in a HA configuration " +
-							" and no more apps are interested.");
+						if(matchingListeningPoint != null && matchingListeningPoint.isUseLoadBalancer()) {
+							sipFactoryImpl.addLoadBalancerRouteHeader(request, matchingListeningPoint);
+							addDNSRoute = false;
+							if(logger.isDebugEnabled()) {
+								logger.debug("adding route to Load Balancer since we are in a HA configuration " +
+								" and no more apps are interested.");
+							}
+						} else {
+							if(logger.isDebugEnabled()) {
+								logger.debug("Not Using load balancer as it is not enabled for listeningPoint " + matchingListeningPoint);
+							}
 						}
 					}
 					//Issue: https://code.google.com/p/sipservlets/issues/detail?id=284
 					else if(!session.getBypassProxy() && StaticServiceHolder.sipStandardService.getOutboundProxy() != null) {
-						sipFactoryImpl.addLoadBalancerRouteHeader(request);
+						sipFactoryImpl.addLoadBalancerRouteHeader(request, null);
 						addDNSRoute = false;
 						if(logger.isDebugEnabled()) {
 							logger.debug("adding route to outbound proxy (no load balancer set) since we have outboundProxy configured " +
@@ -1793,10 +1814,17 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 					session.removeOngoingTransaction(transaction);
 				}
 				if(tad != null) {
-					tad.cleanUp();
-					transaction.setApplicationData(null);
-					if(b2buaHelperImpl == null && sipSession.getProxy() == null) {
-						tad.cleanUpMessage();
+					// Issue 1468 : to handle forking, we shouldn't cleanup the app data since it is needed for the forked responses
+					boolean nullifyAppData = true;					
+					if(((SipStackImpl)(sipFactoryImpl.getSipApplicationDispatcher().getSipStack())).getMaxForkTime() > 0) {
+						nullifyAppData = false;
+					}
+					if(nullifyAppData) {
+						tad.cleanUp();
+						transaction.setApplicationData(null);
+						if(b2buaHelperImpl == null && sipSession.getProxy() == null) {
+							tad.cleanUpMessage();
+						}
 					}
 				}
 			}
@@ -2356,16 +2384,16 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
                 logger.trace("ACK request trying to return the Via address as we don't have a transaction");
             }
             // replaced because wasn't giving correct info for ACK
-            if(message == null || ((SIPRequest)message).getRemoteAddress() == null) {
+            if(message == null || ((SIPRequest)message).getPeerPacketSourceAddress() == null) {
                 return null;
             }
-            return ((SIPRequest)message).getRemoteAddress().getHostAddress();
+            return ((SIPRequest)message).getPeerPacketSourceAddress().getHostAddress();
         } else if (message != null && 
                 message instanceof SIPRequest && 
-                ((SIPRequest)message).getRemoteAddress() != null ) {
+                ((SIPRequest)message).getPeerPacketSourceAddress() != null ) {
             //https://github.com/Mobicents/jain-sip/issues/42
             //take advantage of new message methods to extract addr from msg            
-            return ((SIPRequest)message).getRemoteAddress().getHostAddress();
+            return ((SIPRequest)message).getPeerPacketSourceAddress().getHostAddress();
         } else if(getTransaction() != null) {
             if(logger.isTraceEnabled()) {
                 logger.trace("transaction not null, returning packet source ip address");
@@ -2406,12 +2434,12 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
             if(message == null ) {
                 return -1;
             }
-            return ((SIPRequest)message).getRemotePort();
+            return ((SIPRequest)message).getPeerPacketSourcePort();
         } else if (message != null && 
                 message instanceof SIPRequest ) {
             //https://github.com/Mobicents/jain-sip/issues/42
             //take advantage of new message methods to extract port from msg
-            return ((SIPRequest)message).getRemotePort();
+            return ((SIPRequest)message).getPeerPacketSourcePort();
         } else if(getTransaction() != null) {
             if(logger.isTraceEnabled()) {
                 logger.trace("transaction not null, returning packet source port");
@@ -2474,7 +2502,7 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		subscriberURI = null;
 //		lastFinalResponse = null;
 //		lastInformationalResponse = null;		
-		linkedRequest = null;		
+		linkedRequest = null;
 	}
 	
 	public void cleanUpLastResponses() {

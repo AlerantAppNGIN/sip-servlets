@@ -108,6 +108,7 @@ public class SipFactoryImpl implements MobicentsSipFactory,  Externalizable {
 	private static final String LR_PARAM = "lr";
 
 	private boolean useLoadBalancer = false;
+	private boolean useLoadBalancerForAllRequests = true;
 	private boolean routeOrphanRequests = false;
 	private SipLoadBalancer loadBalancerToUse = null;
 	
@@ -892,20 +893,33 @@ public class SipFactoryImpl implements MobicentsSipFactory,  Externalizable {
 	 * @param request
 	 * @throws ParseException
 	 */
-	public void addLoadBalancerRouteHeader(Request request) {
+	public void addLoadBalancerRouteHeader(Request request, MobicentsExtendedListeningPoint mobicentsExtendedListeningPoint) {
 		try {
 			String transport = JainSipUtils.findTransport(request);
 			String host = null;
 			int port = -1; 
 			OutboundProxy proxy = StaticServiceHolder.sipStandardService.getOutboundProxy();
 			if(proxy == null) {
-				if(transport.equalsIgnoreCase("ws")){
-					//This is a WebSocket request through LB, no need to add Route header.
-					return;
-				} else {
-					host = loadBalancerToUse.getAddress().getHostAddress();
-					port = loadBalancerToUse.getSipPort();
-				}
+//				if(transport.equalsIgnoreCase("ws") || transport.equalsIgnoreCase("wss")){
+//					if(logger.isDebugEnabled()) {
+//						logger.debug("This is a WebSocket request through LB, no need to add Route header");
+//					}
+//					return;
+//				} else {
+					if(mobicentsExtendedListeningPoint.getLoadBalancer() == null) {
+						host = loadBalancerToUse.getAddress().getHostAddress();
+						port = loadBalancerToUse.getSipPort();
+						if(logger.isDebugEnabled()) {
+							logger.debug("Using global load balancer " + host + ":" + port);
+						}
+					} else {
+						host = mobicentsExtendedListeningPoint.getLoadBalancer().getAddress().getHostAddress();
+						port = mobicentsExtendedListeningPoint.getLoadBalancer().getSipPort();
+						if(logger.isDebugEnabled()) {
+							logger.debug("Using specifc load balancer " + host + ":" + port + " from listening Point " + mobicentsExtendedListeningPoint);
+						}
+					}
+//				}
 			} else {				
 				host = proxy.getHost();
 				port = proxy.getPort();				
@@ -914,10 +928,20 @@ public class SipFactoryImpl implements MobicentsSipFactory,  Externalizable {
 			sipUri.setPort(port);
 			sipUri.setLrParam();
 			sipUri.setTransportParam(transport);
-			MobicentsExtendedListeningPoint listeningPoint = 
-				getSipNetworkInterfaceManager().findMatchingListeningPoint(transport, false);
+			MobicentsExtendedListeningPoint listeningPoint = mobicentsExtendedListeningPoint;
+			if(mobicentsExtendedListeningPoint == null) {
+				listeningPoint = getSipNetworkInterfaceManager().findMatchingListeningPoint(transport, false);
+				if (logger.isDebugEnabled()) {
+					logger.debug("mobicentsExtendedListeningPoint was null, found a listening point to use " + listeningPoint);
+				}
+			}
+			boolean usePublicAddress = JainSipUtils.findUsePublicAddress(getSipNetworkInterfaceManager(), request, listeningPoint);
+			String nodeHost= listeningPoint.getHost(usePublicAddress);
+			if (logger.isDebugEnabled()) {
+				logger.debug("usePublicAddress" + usePublicAddress + ", nodeHost=" + nodeHost + " nodePort" + listeningPoint.getPort());
+			}
 			sipUri.setParameter(MessageDispatcher.ROUTE_PARAM_NODE_HOST, 
-					listeningPoint.getHost(JainSipUtils.findUsePublicAddress(getSipNetworkInterfaceManager(), request, listeningPoint)));
+					nodeHost);
 			sipUri.setParameter(MessageDispatcher.ROUTE_PARAM_NODE_PORT, 
 					"" + listeningPoint.getPort());
 			javax.sip.address.Address routeAddress = 
