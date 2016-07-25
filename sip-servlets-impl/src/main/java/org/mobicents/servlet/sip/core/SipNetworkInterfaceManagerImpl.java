@@ -128,7 +128,7 @@ public class SipNetworkInterfaceManagerImpl implements SipNetworkInterfaceManage
 	 * 
 	 * @param extendedListeningPoint
 	 */
-	public void addExtendedListeningPoint(MobicentsExtendedListeningPoint extendedListeningPoint) {
+	public synchronized void addExtendedListeningPoint(MobicentsExtendedListeningPoint extendedListeningPoint) {
 		extendedListeningPointList.add(extendedListeningPoint);
 		computeOutboundInterfaces();
 		// Adding to the transport cache map
@@ -172,7 +172,7 @@ public class SipNetworkInterfaceManagerImpl implements SipNetworkInterfaceManage
 	 * 
 	 * @param extendedListeningPoint
 	 */
-	public void removeExtendedListeningPoint(MobicentsExtendedListeningPoint extendedListeningPoint) {
+	public synchronized void removeExtendedListeningPoint(MobicentsExtendedListeningPoint extendedListeningPoint) {
 		// notifying the applications before removing the listening point so that apps can still try to send a message on it
 		if(extendedListeningPointList.contains(extendedListeningPoint)) {
 			Iterator<SipContext> sipContextIterator = sipApplicationDispatcher.findSipApplications();
