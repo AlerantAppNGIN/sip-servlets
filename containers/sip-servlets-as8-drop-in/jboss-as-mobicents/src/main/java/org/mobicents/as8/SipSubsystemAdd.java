@@ -111,6 +111,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         SipDefinition.T2_INTERVAL.validateAndSet(operation, model);
         SipDefinition.T4_INTERVAL.validateAndSet(operation, model);
         SipDefinition.TAG_HASH_MAX_LENGTH.validateAndSet(operation, model);
+        SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.validateAndSet(operation, model);
         SipDefinition.TIMER_D_INTERVAL.validateAndSet(operation, model);
         SipDefinition.DIALOG_PENDING_REQUEST_CHECKING.validateAndSet(operation, model);
         SipDefinition.DNS_SERVER_LOCATOR_CLASS.validateAndSet(operation, model);
@@ -217,6 +218,10 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final ModelNode tagHashMaxLengthModel = SipDefinition.TAG_HASH_MAX_LENGTH.resolveModelAttribute(context, fullModel);
         final int tagHashMaxLength = tagHashMaxLengthModel.isDefined() ? tagHashMaxLengthModel.asInt() : -1;
 
+        final ModelNode enableAppGeneratedKeyHashingModel = SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.resolveModelAttribute(context, fullModel);
+        final boolean enableAppGeneratedKeyHashing = enableAppGeneratedKeyHashingModel.isDefined() ? enableAppGeneratedKeyHashingModel
+                .asBoolean() : true;
+
         final ModelNode canceledTimerTasksPurgePeriodModel = SipDefinition.CANCELED_TIMER_TASKS_PURGE_PERIOD
                 .resolveModelAttribute(context, fullModel);
         final int canceledTimerTasksPurgePeriod = canceledTimerTasksPurgePeriodModel.isDefined() ? canceledTimerTasksPurgePeriodModel
@@ -264,7 +269,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 sipConcurrencyControlMode, usePrettyEncoding, baseTimerInterval, t2Interval, t4Interval, timerDInterval,
                 dialogPendingRequestChecking, dnsServerLocatorClass, dnsTimeout, dnsResolverClass, callIdMaxLength,
                 tagHashMaxLength, canceledTimerTasksPurgePeriod, memoryThreshold, backToNormalMemoryThreshold, outboundProxy,
-                instanceId);
+                instanceId, enableAppGeneratedKeyHashing);
         newControllers.add(context
                 .getServiceTarget()
                 .addService(SipSubsystemServices.JBOSS_SIP, service)

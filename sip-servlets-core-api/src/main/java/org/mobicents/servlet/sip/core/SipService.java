@@ -72,6 +72,7 @@ public interface SipService {
 	public int getCallIdMaxLength();
 	public String getDnsResolverClass();
 	public int getDnsTimeout();
+	public boolean isEnableAppGeneratedKeyHashing();
 	
 	public String getMobicentsSipServletMessageFactoryClassName();
 	public void setMobicentsSipServletMessageFactoryClassName(String mobicentsSipServletMessageFactoryClassName);

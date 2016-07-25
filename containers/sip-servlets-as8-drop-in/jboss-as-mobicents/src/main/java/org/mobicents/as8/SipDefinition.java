@@ -227,6 +227,13 @@ public class SipDefinition extends SimpleResourceDefinition {
                     .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
                     .setDefaultValue(new ModelNode(-1))
                     .build();
+    protected static final SimpleAttributeDefinition ENABLE_APP_GENERATED_KEY_HASHING =
+            new SimpleAttributeDefinitionBuilder(Constants.ENABLE_APP_GENERATED_KEY_HASHING, ModelType.BOOLEAN, true)
+                    .setAllowExpression(true)
+                    .setXmlName(Constants.ENABLE_APP_GENERATED_KEY_HASHING)
+                    .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
+                    .setDefaultValue(new ModelNode(true))
+                    .build();
     protected static final SimpleAttributeDefinition CANCELED_TIMER_TASKS_PURGE_PERIOD =
             new SimpleAttributeDefinitionBuilder(Constants.CANCELED_TIMER_TASKS_PURGE_PERIOD, ModelType.INT, true)
                     .setAllowExpression(true)

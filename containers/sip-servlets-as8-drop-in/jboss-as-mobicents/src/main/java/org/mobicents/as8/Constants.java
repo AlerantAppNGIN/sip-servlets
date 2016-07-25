@@ -61,6 +61,7 @@ public interface Constants {
     String DNS_RESOLVER_CLASS = "dns-resolver-class";
     String CALL_ID_MAX_LENGTH = "call-id-max-length";
     String TAG_HASH_MAX_LENGTH = "tag-hash-max-length";
+    String ENABLE_APP_GENERATED_KEY_HASHING = "enable-app-generated-key-hashing";
     String DIRECTORY = "directory";
     String DISABLED = "disabled";
     String DISPLAY_SOURCE_FRAGMENT = "display-source-fragment";

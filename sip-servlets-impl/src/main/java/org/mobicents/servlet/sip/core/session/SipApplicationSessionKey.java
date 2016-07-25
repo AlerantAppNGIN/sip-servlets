@@ -62,8 +62,14 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 		// application-session-id by appending some unique identifier
 		if(appGeneratedKey != null) {
 			// http://code.google.com/p/sipservlets/issues/detail?id=146 : @SipApplicationSessionKey usage can break replication
-			// Hash the appGeneratedKey to make sure it always resolve to the same uuid and reset the uuid with it.			
-			uuid = GenericUtils.hashString(appGeneratedKey, SipApplicationDispatcherImpl.APP_ID_HASHING_MAX_LENGTH);
+			// Hash the appGeneratedKey to make sure it always resolve to the same uuid and reset the uuid with it.
+		    // Hash or not to hash
+		    if (SipApplicationDispatcherImpl.ENABLE_APP_GENERATED_KEY_HASHING) {
+		        uuid = GenericUtils.hashString(appGeneratedKey, SipApplicationDispatcherImpl.APP_ID_HASHING_MAX_LENGTH);
+		    } else {
+		        uuid = appGeneratedKey;
+		    }
+
 			if(logger.isDebugEnabled()) {
 				logger.debug("uuid for appGeneratedKey " + appGeneratedKey + " set to " + uuid);
 			}

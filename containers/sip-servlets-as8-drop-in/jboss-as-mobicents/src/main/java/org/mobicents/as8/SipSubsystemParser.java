@@ -154,6 +154,7 @@ class SipSubsystemParser implements XMLStreamConstants, XMLElementReader<List<Mo
                 case BACK_TO_NORMAL_MEMORY_THRESHOLD:
                 case OUTBOUND_PROXY:
                 case TAG_HASH_MAX_LENGTH:
+                case ENABLE_APP_GENERATED_KEY_HASHING:
                 case CONCURRENCY_CONTROL_MODE:
                 case USE_PRETTY_ENCODING:
                     subsystem.get(attribute.getLocalName()).set(value);

@@ -106,6 +106,8 @@ public class SipStandardService extends StandardService implements CatalinaSipSe
      */
     private static final String INFO =
         "org.mobicents.servlet.sip.startup.SipStandardService/1.0";
+    //FIXME: baloghg: implement ENABLE_APP_GENERATED_KEY_HASHING model parameter for tomcat7 container
+    private static final boolean ENABLE_APP_GENERATED_KEY_HASHING = true;
 	//the sip application dispatcher class name defined in the server.xml
 	protected String sipApplicationDispatcherClassName;
 	//instatiated class from the sipApplicationDispatcherClassName of the sip application dispatcher 
@@ -733,6 +735,13 @@ public class SipStandardService extends StandardService implements CatalinaSipSe
 	public boolean getGatherStatistics() {
 		return gatherStatistics;
 	}
+
+	/**
+     * @return true if application generated app session key is allowed to be hashed 
+     */
+    public boolean isEnableAppGeneratedKeyHashing() {
+        return ENABLE_APP_GENERATED_KEY_HASHING;
+    }
 
 	/**
 	 * @param backToNormalPercentageOfMemoryUsed the backToNormalPercentageOfMemoryUsed to set
