@@ -315,6 +315,10 @@ public class SipDefinition extends SimpleResourceDefinition {
                 DIALOG_PENDING_REQUEST_CHECKING));
         registration.registerReadWriteAttribute(GATHER_STATISTICS, null, new ReloadRequiredWriteAttributeHandler(
         		GATHER_STATISTICS));
+        registration.registerReadWriteAttribute(TAG_HASH_MAX_LENGTH, null, new ReloadRequiredWriteAttributeHandler(
+                TAG_HASH_MAX_LENGTH));
+        registration.registerReadWriteAttribute(ENABLE_APP_GENERATED_KEY_HASHING, null, new ReloadRequiredWriteAttributeHandler(
+                ENABLE_APP_GENERATED_KEY_HASHING));
         registration.registerReadWriteAttribute(DNS_SERVER_LOCATOR_CLASS, null, new ReloadRequiredWriteAttributeHandler(
                 DNS_SERVER_LOCATOR_CLASS));
         registration.registerReadWriteAttribute(DNS_TIMEOUT, null, new ReloadRequiredWriteAttributeHandler(DNS_TIMEOUT));

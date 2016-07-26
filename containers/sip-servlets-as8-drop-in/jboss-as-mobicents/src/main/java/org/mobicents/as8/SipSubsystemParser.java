@@ -102,6 +102,7 @@ class SipSubsystemParser implements XMLStreamConstants, XMLElementReader<List<Mo
         SipDefinition.BACK_TO_NORMAL_MEMORY_THRESHOLD.marshallAsAttribute(node, false, writer);
         SipDefinition.OUTBOUND_PROXY.marshallAsAttribute(node, false, writer);
         SipDefinition.TAG_HASH_MAX_LENGTH.marshallAsAttribute(node, false, writer);
+        SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.marshallAsAttribute(node, false, writer);
         if (node.hasDefined(CONNECTOR)) {
             for (final Property connector : node.get(CONNECTOR).asPropertyList()) {
                 final ModelNode config = connector.getValue();
