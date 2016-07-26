@@ -48,6 +48,7 @@
         <module name="org.jboss.xnio.nio"/>
         <module name="io.undertow.jsp"/>
         <module name="org.jboss.as.network"/>
+        <module name="io.netty"/>
         <!-- new entries ends-->
         <!-- handling security -->
         <module name="javax.security.auth.message.api"/>
