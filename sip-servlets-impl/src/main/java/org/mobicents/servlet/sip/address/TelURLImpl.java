@@ -69,12 +69,24 @@ public class TelURLImpl extends URIImpl implements TelURL {
 	 * @see javax.servlet.sip.TelURL#setPhoneNumber(java.lang.String)
 	 */
 	public void setPhoneNumber(String number) {
+		telUrl.setGlobal(true);
+		setPhoneNumberInternal(number);
+
+		try {
+			telUrl.setPhoneContext(null);
+		} catch (ParseException e) {
+			logger.error("Error removing phone context in phone number " + number);
+			throw new java.lang.IllegalArgumentException("phone number " + number + " is invalid", e);
+		}
+	}
+
+	protected void setPhoneNumberInternal(String number) {
 		String phoneNumber = number;
-		if(number.startsWith("+")) {			
+		if(number.startsWith("+")) {
 			phoneNumber = phoneNumber.substring(1);
 		}
 		try {
-			basePhoneNumber(phoneNumber);		
+			basePhoneNumber(phoneNumber);
 			telUrl.setPhoneNumber(phoneNumber);
 		} catch (ParseException ex) {
 			logger.error("Error setting phone number " + number);
@@ -186,7 +198,11 @@ public class TelURLImpl extends URIImpl implements TelURL {
 	 * {@inheritDoc}
 	 */
 	public void setPhoneNumber(String number, String phoneContext) {
-		setPhoneNumber(number);
+		if (number.startsWith("+")) {
+			throw new IllegalArgumentException("phone number " + number + " is invalid, local phone number cannot start with +");
+		}
+		telUrl.setGlobal(false);
+		setPhoneNumberInternal(number);
 		try {
 			telUrl.setPhoneContext(phoneContext);
 		} catch (ParseException ex) {
@@ -194,7 +210,7 @@ public class TelURLImpl extends URIImpl implements TelURL {
 			throw new java.lang.IllegalArgumentException("phone number " + number + " is invalid", ex);
 		}
 	}
-	
+
 	// there might be a bug in the jsip impl in URLParser class need to check with ranga after TCK is done
 	// the part in comment 
 	private final static String basePhoneNumber(String number) throws ParseException {
@@ -221,6 +237,4 @@ public class TelURLImpl extends URIImpl implements TelURL {
 		return s.toString();
 
 	}
-	
-	
 }
