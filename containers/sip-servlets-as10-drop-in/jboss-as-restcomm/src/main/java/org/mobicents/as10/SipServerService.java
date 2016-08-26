@@ -77,6 +77,7 @@ class SipServerService implements SipServer, Service<SipServer> {
     final int memoryThreshold;
     final int backToNormalMemoryThreshold;
     final String outboundProxy;
+    final boolean enableAppGeneratedKeyHashing;
 
     private final String instanceId;
 
@@ -118,7 +119,8 @@ class SipServerService implements SipServer, Service<SipServer> {
             int memoryThreshold,
             int backToNormalMemoryThreshold,
             String outboundProxy,
-            String instanceId) {
+            String instanceId,
+            boolean enableAppGeneratedKeyHashing) {
 
         // FIXME: kakonyii
         // this.defaultHost = defaultHost;
@@ -149,6 +151,7 @@ class SipServerService implements SipServer, Service<SipServer> {
         this.memoryThreshold = memoryThreshold;
         this.backToNormalMemoryThreshold = backToNormalMemoryThreshold;
         this.outboundProxy = outboundProxy;
+        this.enableAppGeneratedKeyHashing = enableAppGeneratedKeyHashing;
     }
 
     /** {@inheritDoc} */
@@ -243,6 +246,7 @@ class SipServerService implements SipServer, Service<SipServer> {
         sipService.setDnsResolverClass(dnsResolverClass);
         sipService.setCallIdMaxLength(callIdMaxLength);
         sipService.setTagHashMaxLength(tagHashMaxLength);
+        sipService.setEnableAppGeneratedKeyHashing(enableAppGeneratedKeyHashing);
         sipService.setCanceledTimerTasksPurgePeriod(canceledTimerTasksPurgePeriod);
         sipService.setMemoryThreshold(memoryThreshold);
         sipService.setBackToNormalMemoryThreshold(backToNormalMemoryThreshold);

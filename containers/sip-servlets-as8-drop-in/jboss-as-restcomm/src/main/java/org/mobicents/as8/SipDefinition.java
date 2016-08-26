@@ -227,6 +227,13 @@ public class SipDefinition extends SimpleResourceDefinition {
                     .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
                     .setDefaultValue(new ModelNode(-1))
                     .build();
+    protected static final SimpleAttributeDefinition ENABLE_APP_GENERATED_KEY_HASHING =
+            new SimpleAttributeDefinitionBuilder(Constants.ENABLE_APP_GENERATED_KEY_HASHING, ModelType.BOOLEAN, true)
+                     .setAllowExpression(true)
+                     .setXmlName(Constants.ENABLE_APP_GENERATED_KEY_HASHING)
+                     .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
+                     .setDefaultValue(new ModelNode(true))
+                     .build();
     protected static final SimpleAttributeDefinition CANCELED_TIMER_TASKS_PURGE_PERIOD =
             new SimpleAttributeDefinitionBuilder(Constants.CANCELED_TIMER_TASKS_PURGE_PERIOD, ModelType.INT, true)
                     .setAllowExpression(true)
@@ -311,7 +318,9 @@ public class SipDefinition extends SimpleResourceDefinition {
         registration.registerReadWriteAttribute(CALL_ID_MAX_LENGTH, null, new ReloadRequiredWriteAttributeHandler(
         		CALL_ID_MAX_LENGTH));
         registration.registerReadWriteAttribute(TAG_HASH_MAX_LENGTH, null, new ReloadRequiredWriteAttributeHandler(
-        		TAG_HASH_MAX_LENGTH));
+                TAG_HASH_MAX_LENGTH));
+        registration.registerReadWriteAttribute(ENABLE_APP_GENERATED_KEY_HASHING, null, new ReloadRequiredWriteAttributeHandler(
+                ENABLE_APP_GENERATED_KEY_HASHING));
         registration.registerReadWriteAttribute(DNS_SERVER_LOCATOR_CLASS, null, new ReloadRequiredWriteAttributeHandler(
                 DNS_SERVER_LOCATOR_CLASS));
         registration.registerReadWriteAttribute(DNS_TIMEOUT, null, new ReloadRequiredWriteAttributeHandler(DNS_TIMEOUT));

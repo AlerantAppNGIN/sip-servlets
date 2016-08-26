@@ -24,11 +24,6 @@ import java.util.Set;
 
 import javax.management.MBeanServer;
 
-
-
-
-
-
 //import org.jboss.as.clustering.web.DistributedCacheManagerFactory;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
@@ -109,6 +104,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         SipDefinition.GATHER_STATISTICS.validateAndSet(operation, model);
         SipDefinition.CALL_ID_MAX_LENGTH.validateAndSet(operation, model);
         SipDefinition.TAG_HASH_MAX_LENGTH.validateAndSet(operation, model);
+        SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.validateAndSet(operation, model);
         SipDefinition.ADDITIONAL_PARAMETERABLE_HEADERS.validateAndSet(operation, model);
         SipDefinition.BASE_TIMER_INTERVAL.validateAndSet(operation, model);
         SipDefinition.T2_INTERVAL.validateAndSet(operation, model);
@@ -219,6 +215,10 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final ModelNode tagHashMaxLengthModel = SipDefinition.TAG_HASH_MAX_LENGTH.resolveModelAttribute(context, fullModel);
         final int tagHashMaxLength = tagHashMaxLengthModel.isDefined() ? tagHashMaxLengthModel.asInt() : -1;
 
+        final ModelNode enableAppGeneratedKeyHashingModel = SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.resolveModelAttribute(context, fullModel);
+        final boolean enableAppGeneratedKeyHashing = enableAppGeneratedKeyHashingModel.isDefined() ? enableAppGeneratedKeyHashingModel
+                .asBoolean() : true;
+
         final ModelNode canceledTimerTasksPurgePeriodModel = SipDefinition.CANCELED_TIMER_TASKS_PURGE_PERIOD
                 .resolveModelAttribute(context, fullModel);
         final int canceledTimerTasksPurgePeriod = canceledTimerTasksPurgePeriodModel.isDefined() ? canceledTimerTasksPurgePeriodModel
@@ -266,7 +266,7 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 sipConcurrencyControlMode, usePrettyEncoding, baseTimerInterval, t2Interval, t4Interval, timerDInterval,
                 dialogPendingRequestChecking, dnsServerLocatorClass, dnsTimeout, dnsResolverClass, callIdMaxLength,
                 tagHashMaxLength, canceledTimerTasksPurgePeriod, memoryThreshold, backToNormalMemoryThreshold, outboundProxy,
-                instanceId);
+                instanceId, enableAppGeneratedKeyHashing);
         newControllers.add(context
                 .getServiceTarget()
                 .addService(SipSubsystemServices.JBOSS_SIP, service)

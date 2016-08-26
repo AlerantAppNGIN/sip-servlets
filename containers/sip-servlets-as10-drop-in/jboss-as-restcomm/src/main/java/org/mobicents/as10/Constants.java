@@ -140,6 +140,7 @@ public interface Constants {
     String T2_INTERVAL = "t2-interval";
     String T4_INTERVAL = "t4-interval";
     String TAG_HASH_MAX_LENGTH = "tag-hash-max-length";
+    String ENABLE_APP_GENERATED_KEY_HASHING = "enable-app-generated-key-hashing";
     String TAG_POOLING = "tag-pooling";
     String TARGET_VM = "target-vm";
     String TEST = "test";

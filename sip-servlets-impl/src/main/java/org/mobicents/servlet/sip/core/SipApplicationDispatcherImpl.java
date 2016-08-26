@@ -258,7 +258,8 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 	private static final int NUMBER_OF_TAG_SEPARATORS = 3;
 	private int tagHashMaxLength = 8;
 	private int callIdMaxLength = -1;
-	
+	public static boolean ENABLE_APP_GENERATED_KEY_HASHING = true;
+
 	// This executor is used for async things that don't need to wait on session executors, like CANCEL requests
 	// or when the container is configured to execute every request ASAP without waiting on locks (no concurrency control)
 	private ThreadPoolExecutor asynchronousExecutor = null;
@@ -411,7 +412,9 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 		}
 		applicationServerId = "" + UUID.randomUUID();
 		applicationServerIdHash = GenericUtils.hashString(applicationServerId, tagHashMaxLength);
-		
+
+		ENABLE_APP_GENERATED_KEY_HASHING = sipService.isEnableAppGeneratedKeyHashing();
+
 		messageDispatcherFactory = new MessageDispatcherFactory(this);
 		asynchronousScheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2, new NamingThreadFactory("sip_servlets_congestion_control"),
 				new ThreadPoolExecutor.CallerRunsPolicy());

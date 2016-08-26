@@ -95,6 +95,7 @@ class SipSubsystemParser implements XMLStreamConstants, XMLElementReader<List<Mo
         SipDefinition.GATHER_STATISTICS.marshallAsAttribute(node, false, writer);
         SipDefinition.CALL_ID_MAX_LENGTH.marshallAsAttribute(node, false, writer);
         SipDefinition.TAG_HASH_MAX_LENGTH.marshallAsAttribute(node, false, writer);
+        SipDefinition.ENABLE_APP_GENERATED_KEY_HASHING.marshallAsAttribute(node, false, writer);
         SipDefinition.DIALOG_PENDING_REQUEST_CHECKING.marshallAsAttribute(node, false, writer);
         SipDefinition.DNS_SERVER_LOCATOR_CLASS.marshallAsAttribute(node, false, writer);
         SipDefinition.DNS_TIMEOUT.marshallAsAttribute(node, false, writer);
@@ -143,7 +144,8 @@ class SipSubsystemParser implements XMLStreamConstants, XMLElementReader<List<Mo
                 case TIMER_D_INTERVAL:
                 case GATHER_STATISTICS:
                 case CALL_ID_MAX_LENGTH:
-	            case TAG_HASH_MAX_LENGTH:
+                case TAG_HASH_MAX_LENGTH:
+                case ENABLE_APP_GENERATED_KEY_HASHING:
                 case DIALOG_PENDING_REQUEST_CHECKING:
                 case DNS_SERVER_LOCATOR_CLASS:
                 case DNS_TIMEOUT:

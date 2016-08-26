@@ -127,6 +127,7 @@ public class SipStandardService implements SipService {
     protected boolean dialogPendingRequestChecking = false;
     protected int callIdMaxLength;
     protected int tagHashMaxLength;
+    protected boolean enableAppGeneratedKeyHashing;
 
     protected boolean httpFollowsSip = false;
     protected String jvmRoute;
@@ -1056,6 +1057,20 @@ public class SipStandardService implements SipService {
      */
     public void setTagHashMaxLength(int tagHashMaxLength) {
         this.tagHashMaxLength = tagHashMaxLength;
+    }
+
+    /**
+     * @return true if application generated app session key is allowed to be hashed
+     */
+    public boolean isEnableAppGeneratedKeyHashing() {
+        return enableAppGeneratedKeyHashing;
+    }
+
+    /**
+     * @param hashAppGeneratedKey the boolean value to set
+     */
+    public void setEnableAppGeneratedKeyHashing(boolean enableAppGeneratedKeyHashing) {
+        this.enableAppGeneratedKeyHashing = enableAppGeneratedKeyHashing;
     }
 
     public boolean isGatherStatistics() {
