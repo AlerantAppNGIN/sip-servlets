@@ -258,9 +258,9 @@ public class CancelRequestDispatcher extends RequestDispatcher {
 						ReasonHeader reasonHeader = (ReasonHeader) sipServletRequest.getMessage().getHeader(ReasonHeader.NAME);
 						// otherwise, all branches are cancelled, and response processing continues as usual
 						if(reasonHeader != null) {
-							proxy.cancelAllExcept(null, new String[] {reasonHeader.getProtocol()}, new int[] {reasonHeader.getCause()}, new String[] {reasonHeader.getText()}, false);
+							proxy.cancelAllExcept(null, new String[] {reasonHeader.getProtocol()}, new int[] {reasonHeader.getCause()}, new String[] {reasonHeader.getText()}, false, sipServletRequest);
 						} else {
-							proxy.cancelAllExcept(null, null, null, null, false);
+							proxy.cancelAllExcept(null, null, null, null, false, sipServletRequest);
 						}
 					}
 					// Fix for Issue 796 : SIP servlet (simple proxy) does not receive "Cancel" requests. (http://code.google.com/p/mobicents/issues/detail?id=796)
