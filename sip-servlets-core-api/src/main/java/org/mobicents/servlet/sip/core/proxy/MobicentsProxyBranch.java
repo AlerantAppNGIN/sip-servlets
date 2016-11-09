@@ -20,7 +20,6 @@
 package org.mobicents.servlet.sip.core.proxy;
 
 import javax.servlet.sip.ProxyBranch;
-import javax.servlet.sip.URI;
 
 import org.mobicents.javax.servlet.sip.ProxyBranchExt;
 import org.mobicents.servlet.sip.core.DispatcherException;
@@ -62,5 +61,7 @@ public interface MobicentsProxyBranch extends ProxyBranch, ProxyBranchExt {
 	void onResponse(MobicentsSipServletResponse sipServletResponse, int status) throws DispatcherException;
 
 	void proxySubsequentRequest(MobicentsSipServletRequest sipServletRequest);
+
+	void cancel(String[] protocol, int[] reasonCode, String[] reasonText, MobicentsSipServletRequest originalCancelRequest);
 
 }

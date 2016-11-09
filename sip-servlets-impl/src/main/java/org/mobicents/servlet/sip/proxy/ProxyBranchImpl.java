@@ -19,11 +19,6 @@
 
 package org.mobicents.servlet.sip.proxy;
 
-import gov.nist.javax.sip.TransactionExt;
-import gov.nist.javax.sip.header.Via;
-import gov.nist.javax.sip.message.MessageExt;
-import gov.nist.javax.sip.stack.SIPClientTransaction;
-
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -61,6 +56,7 @@ import org.mobicents.servlet.sip.SipConnector;
 import org.mobicents.servlet.sip.address.AddressImpl.ModifiableRule;
 import org.mobicents.servlet.sip.address.SipURIImpl;
 import org.mobicents.servlet.sip.core.DispatcherException;
+import org.mobicents.servlet.sip.core.MobicentsExtendedListeningPoint;
 import org.mobicents.servlet.sip.core.RoutingState;
 import org.mobicents.servlet.sip.core.SipApplicationDispatcher;
 import org.mobicents.servlet.sip.core.SipNetworkInterfaceManager;
@@ -78,6 +74,11 @@ import org.mobicents.servlet.sip.rfc5626.IncorrectFlowIdentifierException;
 import org.mobicents.servlet.sip.rfc5626.RFC5626Helper;
 import org.mobicents.servlet.sip.startup.StaticServiceHolder;
 
+import gov.nist.javax.sip.TransactionExt;
+import gov.nist.javax.sip.header.Via;
+import gov.nist.javax.sip.message.MessageExt;
+import gov.nist.javax.sip.stack.SIPClientTransaction;
+
 /**
  * @author jean.deruelle@telestax.com
  * @author vralev@gmail.com
@@ -90,6 +91,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private static final Logger logger = Logger.getLogger(ProxyBranchImpl.class);
 	private transient ProxyImpl proxy;
 	private transient SipServletRequestImpl originalRequest;
+	private transient SipServletRequestImpl originalInviteRequest;
 	private transient SipServletRequestImpl prackOriginalRequest;
 	// From javadoc : object representing the request that is or to be proxied.
 	private transient SipServletRequestImpl outgoingRequest;
@@ -150,6 +152,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		this.proxy = proxy;
 		isAddToPath = proxy.getAddToPath();
 		this.originalRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
+		this.originalInviteRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
 		if(proxy.recordRouteURI != null) {
 		this.recordRouteURI = proxy.recordRouteURI;
 		}
@@ -179,11 +182,11 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				this.originalRequest.getSipSession(),
 				null, null, false);
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see javax.servlet.sip.ProxyBranch#cancel()
 	 */
-	public void cancel() {		
+	public void cancel() {
 		cancel(null, null, null);
 	}
 
@@ -192,12 +195,19 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 * @see javax.servlet.sip.ProxyBranch#cancel(java.lang.String[], int[], java.lang.String[])
 	 */
 	public void cancel(String[] protocol, int[] reasonCode, String[] reasonText) {
+		cancel(protocol, reasonCode, reasonText, null);
+	}
+
+	@Override
+	public void cancel(String[] protocol, int[] reasonCode, String[] reasonText,
+			MobicentsSipServletRequest originalCancelRequest) {
 		if(proxy.getAckReceived()) throw new IllegalStateException("There has been an ACK received on this branch. Can not cancel.");
 		
 		try {			
 			cancelTimer();
 			if(this.isStarted() && !canceled && !timedOut &&
 					(outgoingRequest.getMethod().equalsIgnoreCase(Request.INVITE) ||
+							outgoingRequest.getMethod().equalsIgnoreCase(Request.INFO) ||
 							// https://code.google.com/p/sipservlets/issues/detail?id=253
 							outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK) ||
 							// https://code.google.com/p/sipservlets/issues/detail?id=33
@@ -214,10 +224,10 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 						return;
 					}
 					SipServletRequest cancelRequest = null;
-					if(outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK) || outgoingRequest.getMethod().equalsIgnoreCase(Request.UPDATE)) {
+					if(outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK) || outgoingRequest.getMethod().equalsIgnoreCase(Request.UPDATE) || outgoingRequest.getMethod().equalsIgnoreCase(Request.INFO)) {
 						// https://code.google.com/p/sipservlets/issues/detail?id=253 and https://code.google.com/p/sipservlets/issues/detail?id=33
 						// in case of PRACK or UPDATE we need to take the original INVITE
-						cancelRequest = originalRequest.getLinkedRequest().createCancel();
+						cancelRequest = originalInviteRequest.getLinkedRequest().createCancel();
 					} else {
 						cancelRequest = outgoingRequest.createCancel();
 					}
@@ -234,11 +244,16 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 							
 						}
 					}
+
+					if (originalCancelRequest != null && originalCancelRequest.getContentType() != null) {
+						cancelRequest.setContent(originalCancelRequest.getRawContent(), originalCancelRequest.getContentType());
+					}
+
 					cancelRequest.send();
 				} else {
 					// We dont send cancel, but we must stop the invite retrans
 					SIPClientTransaction tx = (SIPClientTransaction) outgoingRequest.getTransaction();
-					
+
 					if(tx != null) {
 						StaticServiceHolder.disableRetransmissionTimer.invoke(tx);
 						//disableTimeoutTimer.invoke(tx);
@@ -269,9 +284,10 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		} finally {
 			onBranchTerminated();
 		}
-			
+		
 	}
-	
+
+
 	// This will be called when we are sure this branch will not succeed and we moved on to other branches.
 	public void onBranchTerminated() {
 		if(outgoingRequest != null) {
@@ -301,7 +317,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		if(this.getRecordRoute()) {
 			if(this.recordRouteURI == null && this.recordRouteURIString == null) 
 				this.recordRouteURIString = DEFAULT_RECORD_ROUTE_URI;
-			
+
 			if(recordRouteURIString != null) {
 				try {
 					recordRouteURI = ((SipURI)proxy.getSipFactoryImpl().createURI(recordRouteURIString));
@@ -591,7 +607,8 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		
 		// Send informational responses back immediately
 		if((status > 100 && status < 200) || (status == 200 &&
-				(Request.PRACK.equals(response.getMethod()) || Request.UPDATE.equals(response.getMethod()))))
+				(Request.PRACK.equals(response.getMethod()) || Request.INFO.equals(response.getMethod()) 
+						|| Request.UPDATE.equals(response.getMethod()))))
 		{
 			// Deterimine if the response is reliable. We just look at RSeq, because
 			// every such response is required to have it.
@@ -812,10 +829,37 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				final String transport = JainSipUtils.findTransport(clonedRequest);
 				SipFactoryImpl sipFactoryImpl = proxy.getSipFactoryImpl();
 				SipNetworkInterfaceManager sipNetworkInterfaceManager = sipFactoryImpl.getSipNetworkInterfaceManager();
-				final SipProvider sipProvider = sipNetworkInterfaceManager.findMatchingListeningPoint(
-						transport, false).getSipProvider();
-				SipConnector sipConnector = StaticServiceHolder.sipStandardService.findSipConnector(transport);
-				
+				final SipProvider sipProvider;
+				final SipConnector sipConnector;
+				MobicentsExtendedListeningPoint matchingListeningPoint = null;
+				String outboundInterface = sipSession.getOutboundInterface();
+				if (outboundInterface != null) {
+					if (logger.isDebugEnabled()) {
+						logger.debug(
+								"Trying to find listening point with session outbound interface " + outboundInterface);
+					}
+					javax.sip.address.SipURI outboundInterfaceURI = null;
+					try {
+						outboundInterfaceURI = (javax.sip.address.SipURI) SipFactoryImpl.addressFactory
+								.createURI(outboundInterface);
+					} catch (ParseException e) {
+						throw new IllegalArgumentException("couldn't parse the outbound interface " + outboundInterface,
+								e);
+					}
+					matchingListeningPoint = sipNetworkInterfaceManager.findMatchingListeningPoint(outboundInterfaceURI,
+							false);
+					if (logger.isDebugEnabled()) {
+						logger.debug("Matching listening point " + matchingListeningPoint);
+					}
+				}
+				if (matchingListeningPoint != null) {
+					sipProvider = matchingListeningPoint.getSipProvider();
+					sipConnector = matchingListeningPoint.getSipConnector();
+				} else {
+					sipProvider = sipNetworkInterfaceManager.findMatchingListeningPoint(transport, false)
+							.getSipProvider();
+					sipConnector = StaticServiceHolder.sipStandardService.findSipConnector(transport);
+				}
 				// Optimizing the routing for AR (if any)
 				if(sipConnector.isUseStaticAddress()) {
 					JainSipUtils.optimizeRouteHeaderAddressForInternalRoutingrequest(
@@ -912,11 +956,40 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		} catch (ParseException pe) {
 			logger.error("A problem occured while setting the via branch while proxying a request", pe);
 		}
-	
 		String transport = JainSipUtils.findTransport(clonedRequest);
-		SipProvider sipProvider =sipFactoryImpl.getSipNetworkInterfaceManager().findMatchingListeningPoint(
-				transport, false).getSipProvider();
-		
+		SipNetworkInterfaceManager sipNetworkInterfaceManager = sipFactoryImpl.getSipNetworkInterfaceManager();
+		final SipProvider sipProvider;
+		final SipConnector sipConnector;
+		MobicentsExtendedListeningPoint matchingListeningPoint = null;
+		String outboundInterface = sipSession.getOutboundInterface();
+		if (outboundInterface != null) {
+			if (logger.isDebugEnabled()) {
+				logger.debug(
+						"Trying to find listening point with session outbound interface " + outboundInterface);
+			}
+			javax.sip.address.SipURI outboundInterfaceURI = null;
+			try {
+				outboundInterfaceURI = (javax.sip.address.SipURI) SipFactoryImpl.addressFactory
+						.createURI(outboundInterface);
+			} catch (ParseException e) {
+				throw new IllegalArgumentException("couldn't parse the outbound interface " + outboundInterface,
+						e);
+			}
+			matchingListeningPoint = sipNetworkInterfaceManager.findMatchingListeningPoint(outboundInterfaceURI,
+					false);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Matching listening point " + matchingListeningPoint);
+			}
+		}
+		if (matchingListeningPoint != null) {
+			sipProvider = matchingListeningPoint.getSipProvider();
+			sipConnector = matchingListeningPoint.getSipConnector();
+		} else {
+			sipProvider = sipNetworkInterfaceManager.findMatchingListeningPoint(transport, false)
+					.getSipProvider();
+			sipConnector = StaticServiceHolder.sipStandardService.findSipConnector(transport);
+		}
+
 		try {
 			RFC5626Helper.checkRequest(this, clonedRequest, request);
 		} catch (IncorrectFlowIdentifierException e1) {
@@ -939,7 +1012,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			sipAppSession.access();
 		}
 
-	    SipConnector sipConnector = StaticServiceHolder.sipStandardService.findSipConnector(transport);
 
 		ClientTransaction ctx = null;	
 		try {	

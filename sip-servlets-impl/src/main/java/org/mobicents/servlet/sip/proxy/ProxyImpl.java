@@ -92,7 +92,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger logger = Logger.getLogger(ProxyImpl.class);
-	
+
 	private SipServletRequestImpl originalRequest;
 	private transient SipServletResponseImpl bestResponse;
 	private transient ProxyBranchImpl bestBranch;
@@ -117,21 +117,21 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	private transient SipURI outboundInterface;
 	private transient SipFactoryImpl sipFactoryImpl;
 	private boolean isNoCancel;
-	
+
 	private final transient Map<String, TransactionApplicationData> transactionMap = new ConcurrentHashMap<String, TransactionApplicationData>();
-	
+
 	private transient Map<URI, ProxyBranchImpl> proxyBranches;
-	private boolean started; 
+	private boolean started;
 	private boolean ackReceived = false;
 	// https://telestax.atlassian.net/browse/MSS-153 removing can use start flag to optimize memory usage
 //	private boolean tryingSent = false;
 	// This branch is the final branch (set when the final response has been sent upstream by the proxy) 
 	// that will be used for proxying subsequent requests
 	private ProxyBranchImpl finalBranchForSubsequentRequests;
-	
+
 	// Keep the URI (// https://telestax.atlassian.net/browse/MSS-153 as String to save memory) of the previous SIP entity that sent the original request to us (either another proxy or UA)
 	private String previousNode;
-	
+
 	// The From-header of the initiator of the request. Used to determine the direction of the request.
 	// Caller -> Callee or Caller <- Callee
 	private String callerFromTag;
@@ -140,17 +140,17 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 
 	// Information required to implement 3GPP TS 24.229 section 5.2.8.1.2. ie Termination of Session originating from the proxy.
 	private boolean storeTerminationInfo = false; // Enables storage of termination information.
-	private ProxyTerminationInfo terminationInfo; // Object to store termination information	
+	private ProxyTerminationInfo terminationInfo; // Object to store termination information
 
 	// empty constructor used only for Externalizable interface
 	public ProxyImpl() {}
-	
+
 	public ProxyImpl(SipServletRequestImpl request, SipFactoryImpl sipFactoryImpl)
 	{
 		this.proxyTimerService = ((MobicentsSipApplicationSession)request.getSipApplicationSession(false)).getSipContext().getProxyTimerService();
 		this.originalRequest = request;
 		this.sipFactoryImpl = sipFactoryImpl;
-		this.proxyBranches = new LinkedHashMap<URI, ProxyBranchImpl> ();		
+		this.proxyBranches = new LinkedHashMap<URI, ProxyBranchImpl> ();
 		this.proxyTimeout = 180; // 180 secs default
 		this.proxy1xxTimeout = -1; // not activated by default
 		String outboundInterfaceStringified = ((MobicentsSipSession)request.getSession()).getOutboundInterface();
@@ -173,7 +173,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
                     if(logger.isDebugEnabled()) {
                             logger.debug("Transaction "+txId+" added to proxy.");
                     }
-            }                               
+            }
     }
     // https://code.google.com/p/sipservlets/issues/detail?id=238
     public void removeTransaction(String txId) {
@@ -184,7 +184,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
             }
             checkAndCleanProxy();
     }
-	
+
     public void checkAndCleanProxy() {
     	// https://telestax.atlassian.net/browse/MSS-153 optimize performance by cleaning up the original request to reduce the retained mem size
         if(this.transactionMap.size() == 0 && originalRequest != null) {
@@ -206,7 +206,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
             	finalBranchForSubsequentRequests.setResponse(null);
             	finalBranchForSubsequentRequests.setOriginalRequest(null);
             	finalBranchForSubsequentRequests.setOutgoingRequest(null);
-            	
+
         	}
         }
     }
@@ -258,7 +258,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 //		return uri;
 
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see javax.servlet.sip.Proxy#cancel()
 	 */
@@ -267,7 +267,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			throw new IllegalStateException("There has been an ACK received. Can not cancel more brnaches, the INVITE tx has finished.");
 		cancelAllExcept(null, null, null, null, true);
 	}
-	
+
 	/*
 	 * (non-Javadoc)
 	 * @see javax.servlet.sip.Proxy#cancel(java.lang.String[], int[], java.lang.String[])
@@ -279,6 +279,12 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	}
 
 	public void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText, boolean throwExceptionIfCannotCancel) {
+		cancelAllExcept(except, protocol, reasonCode, reasonText, throwExceptionIfCannotCancel, null);
+	}
+
+	@Override
+	public void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText,
+			boolean throwExceptionIfCannotCancel, MobicentsSipServletRequest originalCancelRequest) {
 		if(logger.isDebugEnabled()) {
 			if(except == null) {
 				logger.debug("Cancelling all Branches");
@@ -291,7 +297,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				// Do not make this check in the beginning of the method, because in case of reINVITE etc, we already have a single brnch nd this method
 				// would have no actual effect, no need to fail it just because we've already seen ACK. Only throw exception if there are other branches.
 				try {
-					proxyBranch.cancel(protocol, reasonCode, reasonText);
+					proxyBranch.cancel(protocol, reasonCode, reasonText, originalCancelRequest);
 				} catch (IllegalStateException e) {				
 					if(throwExceptionIfCannotCancel) {
 						throw e;
@@ -300,13 +306,14 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 						if(logger.isDebugEnabled()) {
 							logger.debug("Problem cancelling proxy branch " + proxyBranch.getTargetURI() + " lastResponse "+ proxyBranch.getResponse() + 
 								" isCancelled " + proxyBranch.isCanceled() + " isStarted " + proxyBranch.isStarted() + " isTimedOut " + proxyBranch.isTimedOut());
+							logger.debug(e.getMessage(), e);
 						}
 					}
 				}
 			}
 		}
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see javax.servlet.sip.Proxy#createProxyBranches(java.util.List)
 	 */
@@ -371,7 +378,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	public List<ProxyBranch> getProxyBranches() {
 		return new ArrayList<ProxyBranch>(this.proxyBranches.values());
 	}
-		
+
 	public Map<URI, ProxyBranchImpl> getProxyBranchesMap() {
 		return this.proxyBranches;
 	}
@@ -513,7 +520,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	 */
 	public void setProxyTimeout(int seconds) {
 		if(seconds<=0) throw new IllegalArgumentException("Negative or zero timeout not allowed");
-		
+
 		proxyTimeout = seconds;
 		for(ProxyBranchImpl proxyBranch : proxyBranches.values()) {	
 			final boolean inactive = proxyBranch.isCanceled() || proxyBranch.isTimedOut();
@@ -549,7 +556,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			if(logger.isDebugEnabled()) {
 				logger.debug("Record routing enabled for proxy, Record Route used will be : " + recordRouteURIString);
 			}
-		}		
+		}
 		this.recordRoutingEnabled = rr;
 
 	}
@@ -613,16 +620,16 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				if(originalRequest.getTransaction().getState() == null )
 				logger.info("Sending 100 Trying to the source");
 				SipServletResponse trying =
-					originalRequest.createResponse(100);			
+					originalRequest.createResponse(100);
 				try {
 					trying.send();
-				} catch (IOException e) { 
+				} catch (IOException e) {
 					logger.error("Cannot send the 100 Trying",e);
 				}
 			}
 		}
-		
-		
+
+
 		started = true;
 		if(this.parallel) {
 			for (final MobicentsProxyBranch pb : this.proxyBranches.values()) {
@@ -632,23 +639,23 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			}
 		} else {
 			startNextUntriedBranch();
-		}		
+		}
 	}
-	
+
 	public SipURI getOutboundInterface() {
 		return outboundInterface;
 	}
-	
+
 	public void onFinalResponse(ProxyBranchImpl branch) throws DispatcherException {
 		//Get the final response
 		final SipServletResponseImpl response = (SipServletResponseImpl) branch.getResponse();
 		final int status = response.getStatus(); 
-		
+
 		// Cancel all others if 2xx or 6xx 10.2.4 and it's not a retransmission
 		if(!isNoCancel && response.getTransaction() != null) {
 			if(this.getParallel()) {
 				if( (status >= 200 && status < 300) 
-					|| (status >= 600 && status < 700) ) { 
+					|| (status >= 600 && status < 700) ) {
 					if(logger.isDebugEnabled())
 						logger.debug("Cancelling all other branches in this proxy");
 					cancelAllExcept(branch, null, null, null, false);
@@ -685,7 +692,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				// if not parallel, just adding it to the list is enough
 			}
 		}
-		
+
 		// https://telestax.desk.com/web/agent/case/1805
                 //Check priority if not 6XX, the lower response is the best
                 //Otherwise, 6XX must always win(first received).
@@ -706,19 +713,19 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				bestBranch = branch;
 			}
 		}
-		
+
 		if(logger.isDebugEnabled())
 					logger.debug("Best response so far is " + bestResponse);
-		
+
 		// Check if we are waiting for more response
 		if(parallel && allResponsesHaveArrived()) {
-			finalBranchForSubsequentRequests = bestBranch;			
+			finalBranchForSubsequentRequests = bestBranch;
 			if(logger.isDebugEnabled())
 				logger.debug("All responses have arrived, sending final response for parallel proxy" );
 			sendFinalResponse(bestResponse, bestBranch);
 		} else if(parallel && originalRequest != null && originalRequest.getMethod().equalsIgnoreCase(Request.INVITE) && status >= 200 && status < 300) {
 			// https://code.google.com/p/sipservlets/issues/detail?id=283 make sure we automatically forward all 2xx responses for INVITE
-			finalBranchForSubsequentRequests = bestBranch;			
+			finalBranchForSubsequentRequests = bestBranch;
 			if(logger.isDebugEnabled())
 				logger.debug("not all responses have arrived, but sending 2xx final response for parallel proxy" );
 			sendFinalResponse(bestResponse, bestBranch);
@@ -739,15 +746,15 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 						logger.debug("Trying new branch in proxy" );
 					startNextUntriedBranch();
 					// commenting as this is causing NPE in the application if the application tries to get the original request
-					// on a retransmission, removing the transaction too fast will lead to an NPE. 
-					// The transaction should be removed anyway through processTransactionTerminated
+					// on a retransmission, removing the transaction too fast will lead to an NPE.
+					// The transaction should be removed anyway through processTransactionTerminatd
 //					branch.onBranchTerminated();
 				}
 			}
 		}
 
 	}
-	
+
 	public void onBranchTimeOut(ProxyBranchImpl branch) throws DispatcherException
 	{
 		if(this.bestBranch == null) this.bestBranch = branch;
@@ -771,9 +778,9 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	{
 		if(this.parallel) 
 			throw new IllegalStateException("This method is only for sequantial proxying");
-		
+
 		for(final MobicentsProxyBranch pbi: this.proxyBranches.values())
-		{			
+		{
 			// Issue http://code.google.com/p/mobicents/issues/detail?id=2461
 			// don't start the branch is it has been cancelled already
 			if(!pbi.isStarted() && !pbi.isCanceled())
@@ -783,19 +790,19 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			}
 		}
 	}
-	
+
 	public boolean allResponsesHaveArrived()
 	{
 		for(final MobicentsProxyBranch pbi: this.proxyBranches.values())
 		{
 			final SipServletResponse response = pbi.getResponse();
-			
+
 			// The unstarted branches still haven't got a chance to get response
 			// Issue http://code.google.com/p/mobicents/issues/detail?id=2461 adding !isCancelled
-			if(!pbi.isStarted() && !pbi.isCanceled()) { 
+			if(!pbi.isStarted() && !pbi.isCanceled()) {
 				return false;
 			}
-			
+
 			if(pbi.isStarted() && !pbi.isTimedOut()
 					// Issue http://code.google.com/p/mobicents/issues/detail?id=2461 adding !isCancelled
 					// Issue https://code.google.com/p/sipservlets/issues/detail?id=283 fixing !isCancelled for parallel branches, 
@@ -810,10 +817,10 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 		}
 		return true;
 	}
-	
+
 	public void sendFinalResponse(MobicentsSipServletResponse response,
-			ProxyBranchImpl proxyBranch) throws DispatcherException {		
-		
+			ProxyBranchImpl proxyBranch) throws DispatcherException {
+
 		// If we didn't get any response and only a timeout just return a timeout
 		if(proxyBranch.isTimedOut()) {
 			try {
@@ -827,11 +834,11 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 					logger.debug("All responses have arrived, sending final response for parallel proxy" );
 				try {
 					MessageDispatcher.callServlet(timeoutResponse);
-				} catch (ServletException e) {				
-					throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);					
-				} catch (IOException e) {				
+				} catch (ServletException e) {
+					throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);
+				} catch (IOException e) {
 					throw new DispatcherException("Unexpected io exception while processing the response : " + response, e);
-				} catch (Throwable e) {				
+				} catch (Throwable e) {
 					throw new DispatcherException("Unexpected exception while processing response : " + response, e);
 				}
 				timeoutResponse.send();
@@ -841,7 +848,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				throw new IllegalStateException("Failed to send a timeout response", e);
 			}
 		}
-			
+
 		if(logger.isDebugEnabled())
 					logger.debug("Proxy branch has NOT timed out");
 
@@ -850,15 +857,15 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			try {
 				response.setBranchResponse(false);
 				MessageDispatcher.callServlet(response);
-			} catch (ServletException e) {				
-				throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);					
-			} catch (IOException e) {				
+			} catch (ServletException e) {
+				throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);
+			} catch (IOException e) {
 				throw new DispatcherException("Unexpected io exception while processing the response : " + response, e);
-			} catch (Throwable e) {				
+			} catch (Throwable e) {
 				throw new DispatcherException("Unexpected exception while processing response : " + response, e);
 			}
 		}
-		
+
 		final int bestResponseStatus = response.getStatus();
 		if(parallel) {
 			if(!allResponsesHaveArrived()) {
@@ -879,12 +886,11 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				return;
 			}
 		}
-		
+
 		if(logger.isDebugEnabled())
 			logger.debug("All responses have arrived, sending final response for parallel proxy" );
 		//Otherwise proceed with proxying the response
-		final SipServletResponseImpl proxiedResponse = 
-			ProxyUtils.createProxiedResponse(response, proxyBranch);
+		final SipServletResponseImpl proxiedResponse = ProxyUtils.createProxiedResponse(response, proxyBranch);
 		
 		if(proxiedResponse == null || proxiedResponse.getMessage() == null) {
 			if(logger.isDebugEnabled())
@@ -951,7 +957,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			bestBranch = null;
 			bestResponse = null;
 		}
-	}		
+	}
 
 	/**
 	 * @return the bestResponse
@@ -959,7 +965,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	public SipServletResponseImpl getBestResponse() {
 		return bestResponse;
 	}
-	
+
 	public void setOriginalRequest(MobicentsSipServletRequest originalRequest) {
 		// Determine the direction of the request. Either it's from the dialog initiator (the caller)
 		// or from the callee
@@ -1019,10 +1025,10 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				break;
 			}
 		}
-		
+
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
 				inetAddress.getHostAddress() + " not found");
-		
+
 		outboundInterface = networkInterface;
 	}
 
@@ -1044,13 +1050,13 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				break;
 			}
 		}
-		
+
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
-				address + " not found");		
-		
+				address + " not found");
+
 		outboundInterface = networkInterface;
-	}	
-	
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * @see org.mobicents.javax.servlet.sip.ProxyExt#setOutboundInterface(javax.servlet.sip.SipURI)
@@ -1067,21 +1073,21 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				break;
 			}
 		}
-		
+
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
-				outboundInterface + " not found");		
-		
+				outboundInterface + " not found");
+
 		this.outboundInterface = networkInterface;
 	}
-	
+
 	public void setAckReceived(boolean received) {
 		this.ackReceived = received;
 	}
-	
+
 	public boolean getAckReceived() {
 		return this.ackReceived;
 	}
-	
+
 	public String getPreviousNode() {
 		return previousNode;
 	}
@@ -1174,7 +1180,6 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	 */
 	public void setProxy1xxTimeout(int timeout) {
 		proxy1xxTimeout = timeout;
-		
 	}
 	/**
 	 * @return the proxyTimerService
@@ -1189,7 +1194,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 //		}
 //		this.proxyBranches.put(proxyBranchImpl.getTargetURI(), proxyBranchImpl);
 //	}
-	
+
 	/*
 	 * (non-Javadoc)
 	 * @see org.mobicents.javax.servlet.sip.ProxyExt#storeTerminationInformation(boolean)
@@ -1219,7 +1224,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
     		throw new IllegalStateException("No termination information stored.Call storeTerminationInformation before final response arrives.");
     	}
     	terminationInfo.terminate(session, calleeResponseCode, calleeResponseText, callerResponseCode, callerResponseText);
-    }	
+    }
 
 	/**
 	 * @return the terminationInfo
@@ -1239,7 +1244,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	}
 
 	@Override
-	public boolean getSipOutboundSupport() {		
+	public boolean getSipOutboundSupport() {
 		return sipOutboundSupport;
 	}
 

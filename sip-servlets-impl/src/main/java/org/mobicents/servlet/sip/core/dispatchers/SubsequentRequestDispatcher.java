@@ -289,7 +289,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 			if(!routeOrphanRequests) {
 				if(poppedRouteHeader != null) {
 					throw new DispatcherException(Response.CALL_OR_TRANSACTION_DOES_NOT_EXIST, "Cannot find the corresponding sip session to this subsequent request " + request +
-							" with the following popped route header " + sipServletRequest.getPoppedRoute() + ", it may already have been invalidated or timed out");
+							" with the following popped route header " + sipServletRequest.getPoppedRoute() + ", it may already have been invalidated or timed out" + " appSessionId=" + applicationId);
 				} else {
 					throw new DispatcherException(Response.CALL_OR_TRANSACTION_DOES_NOT_EXIST, "Cannot find the corresponding sip session to this subsequent request " + request +
 							", it may already have been invalidated or timed out");					
@@ -479,7 +479,8 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 					if(!Request.PRACK.equalsIgnoreCase(requestMethod) &&
 							// https://github.com/Mobicents/sip-servlets/issues/66 include UPDATE as well otherwise
 							// creating the 200 OK response to IVNITE for B2BUA after UPDATE is failing
-							!Request.UPDATE.equalsIgnoreCase(requestMethod)) {
+							!Request.UPDATE.equalsIgnoreCase(requestMethod) &&
+							!Request.INFO.equalsIgnoreCase(requestMethod)) {
 						sipSession.setSessionCreatingTransactionRequest(sipServletRequest);
 					}
 					sipSession.addOngoingTransaction(sipServletRequest.getTransaction());
@@ -548,23 +549,24 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 			                                    if(logger.isDebugEnabled()) {
 			                                        logger.debug("not calling the servlet since this is an ACK for a null last final response, which means the ACK was for a sip stack generated error response");
 			                                    }
-			                                    callServlet = false;	
+			                                    callServlet = false;
 			                                    break;
-										    }							 
-										}										
+										    }
+										}
 									}
 								}
 							}
-						}							
+						}
 					}
-					
+
 					// See if the subsequent request should go directly to the proxy
 					final MobicentsProxy proxy = sipSession.getProxy();
 					if(proxy != null) {
 						MobicentsProxyBranch finalBranch = proxy.getFinalBranchForSubsequentRequests();
-						
+
 						boolean isPrack = requestMethod.equalsIgnoreCase(Request.PRACK);
 						boolean isUpdate = requestMethod.equalsIgnoreCase(Request.UPDATE);
+						boolean isInfo = requestMethod.equalsIgnoreCase(Request.INFO);
 						// https://code.google.com/p/sipservlets/issues/detail?id=275
 						boolean isNotify = requestMethod.equalsIgnoreCase(Request.NOTIFY);
 						// JSR 289 Section 6.2.1 :
@@ -572,9 +574,9 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 						// the state change must be accomplished by the container before calling 
 						// the service() method of any SipServlet to handle the incoming message.
 						sipSession.updateStateOnSubsequentRequest(sipServletRequest, true);
-						if(finalBranch != null) {								
+						if(finalBranch != null) {
 							proxy.setAckReceived(requestMethod.equalsIgnoreCase(Request.ACK));
-							checkRequestURIForNonCompliantAgents(finalBranch, request);							
+							checkRequestURIForNonCompliantAgents(finalBranch, request);
 							proxy.setOriginalRequest(sipServletRequest);
 							// if(!isAckRetranmission) { // We should pass the ack retrans (implied by 10.2.4.1 Handling 2xx Responses to INVITE)
 							// emmartins: JSR 289 10.2.8 - ACKs for non-2xx final responses are just dropped 
@@ -582,14 +584,20 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 								callServlet(sipServletRequest);
 								finalBranch.proxySubsequentRequest(sipServletRequest);
 							}
-						} else if(isPrack || isUpdate
+						} else if(isPrack || isUpdate || isInfo
 								// https://code.google.com/p/sipservlets/issues/detail?id=275
 								|| isNotify) {
 							callServlet(sipServletRequest);
 							final List<ProxyBranch> branches = proxy.getProxyBranches();
 							for(ProxyBranch pb : branches) {
+
 								final ProxyBranchImpl proxyBranch = (ProxyBranchImpl) pb;
-								if(proxyBranch.isWaitingForPrack() && isPrack) {
+
+								if (isPrack) {
+									proxyBranch.setPrackOriginalRequest(sipServletRequest);
+								}
+
+								if(false && proxyBranch.isWaitingForPrack() && isPrack) {
 									proxyBranch.proxyDialogStateless(sipServletRequest);
 									proxyBranch.setWaitingForPrack(false);
 								} else {
@@ -619,12 +627,12 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 										}
 										String proxyToTag = ((MessageExt)proxyResponse.getMessage()).getToHeader().getTag();
 										String proxyFromTag = ((MessageExt)proxyResponse.getMessage()).getFromHeader().getTag();
-	
+
 										if (proxyToTag.equals(requestToTag) || proxyFromTag.equals(requestToTag) ) { 
 											finalBranch = proxyBranch;
 											checkRequestURIForNonCompliantAgents(finalBranch, request);
 											finalBranch.proxySubsequentRequest(sipServletRequest);
-										} 
+										}
 								    }
 								}
 							}
@@ -653,8 +661,8 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 						}
 					}
 					// If it's not for a proxy then it's just an AR, so go to the next application
-					else {	
-						
+					else {
+
 						// JSR 289 Section 6.2.1 :
 						// any state transition caused by the reception of a SIP message, 
 						// the state change must be accomplished by the container before calling 
@@ -663,14 +671,14 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 						if(callServlet) {
 							callServlet(sipServletRequest);
 						}
-					}						
+					}
 				} catch (ServletException e) {
 					throw new DispatcherException(Response.SERVER_INTERNAL_ERROR, "An unexpected servlet exception occured while processing the following subsequent request " + request, e);
 				} catch (SipException e) {
 					throw new DispatcherException(Response.SERVER_INTERNAL_ERROR, "An unexpected servlet exception occured while processing the following subsequent request " + request, e);
 				} catch (IOException e) {				
 					throw new DispatcherException(Response.SERVER_INTERNAL_ERROR, "An unexpected servlet exception occured while processing the following subsequent request " + request, e);
-				} 	 
+				}
 			} finally {
 				// A subscription is destroyed when a notifier sends a NOTIFY request
 				// with a "Subscription-State" of "terminated".		
@@ -679,7 +687,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 				if(Request.NOTIFY.equals(requestMethod) && sipSession.getProxy() == null) {
 					final SubscriptionStateHeader subscriptionStateHeader = (SubscriptionStateHeader) 
 						sipServletRequest.getMessage().getHeader(SubscriptionStateHeader.NAME);
-				
+
 					if (subscriptionStateHeader != null && 
 										SubscriptionStateHeader.TERMINATED.equalsIgnoreCase(subscriptionStateHeader.getState())) {
 						sipSession.removeSubscription(sipServletRequest);
@@ -700,13 +708,13 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 //						if(b2buaHelperImpl != null && tad != null) {
 //							// we unlink the originalRequest early to avoid keeping the messages in mem for too long
 //							b2buaHelperImpl.unlinkOriginalRequestInternal((SipServletRequestImpl)tad.getSipServletMessage(), false);
-//						}	
+//						}
 						if(proxy == null && b2buaHelperImpl == null) {
 							sipSession.removeOngoingTransaction(sipServletRequest.getTransaction());
 						}
 					}
 				}
-				
+
 				// exitSipAppHa completes the replication task. It might block for a while if the state is too big
 				// We should never call exitAipApp before exitSipAppHa, because exitSipApp releases the lock on the
 				// Application of SipSession (concurrency control lock). If this happens a new request might arrive
@@ -716,7 +724,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 			}
 			//nothing more needs to be done, either the app acted as UA, PROXY or B2BUA. in any case we stop routing	
 		}
-		
+
 		// Issue 2850 :	Use Request-URI custom Mobicents parameters to route request for misbehaving agents, workaround for Cisco-SIPGateway/IOS-12.x user agent
 		private void checkRequestURIForNonCompliantAgents(MobicentsProxyBranch finalBranch, Request request) throws ServletParseException {
 			URI requestURI = request.getRequestURI();
@@ -732,7 +740,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 					request.setRequestURI(
 							((URIImpl)(StaticServiceHolder.sipStandardService.getSipApplicationDispatcher().getSipFactory().createURI(
 							finalBranch.getTargetURI()))).getURI());
-				}								
+				}
 			}
 		}
 	}
