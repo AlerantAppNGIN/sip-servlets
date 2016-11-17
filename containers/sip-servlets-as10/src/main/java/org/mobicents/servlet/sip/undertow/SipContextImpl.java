@@ -177,7 +177,8 @@ public class SipContextImpl implements SipContext {
         // standardcontextconfig
         // is correctly initialized too
 
-        prepareServletContext();
+        //pocsajim: removing prepareServletContext() call here since it is called from start() as well
+        //prepareServletContext();
 
         if (logger.isDebugEnabled()) {
             logger.debug("sip context Initialized");
