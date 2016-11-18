@@ -60,7 +60,14 @@ public class SipJndiBindingProcessor implements DeploymentUnitProcessor {
             sipApplicationName = sipMetaData.getApplicationName();
         } else if (sipAnnotationMetaData != null && sipAnnotationMetaData.isSipApplicationAnnotationPresent()) {
             // FIXME: very dirty fix, this should be done in a separate function
-            sipApplicationName = sipAnnotationMetaData.get("classes").getApplicationName();
+        	// Search for SipMetaData among applications:
+        	for (SipMetaData smd : sipAnnotationMetaData.values()) {
+        		sipApplicationName = smd.getApplicationName();
+        		if (sipApplicationName != null) break;
+        	}
+        	if (sipApplicationName == null) {
+        		throw new DeploymentUnitProcessingException("No application name found! You need a @SipApplication annotation in a package-info.java");
+        	}
         } else if (parentDU != null) {
             AttachmentList<DeploymentUnit> subDeploymentList = parentDU
                     .getAttachment(org.jboss.as.server.deployment.Attachments.SUB_DEPLOYMENTS);
