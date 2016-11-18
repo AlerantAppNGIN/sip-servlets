@@ -62,8 +62,17 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 							" sleeping for " + sleep / 1000L + " seconds");
 				}
 				final SipContext sipContext = sipApplicationSession.getSipContext();
-				final SipApplicationSessionTimerTask expirationTimerTask = sipContext.getSipApplicationSessionTimerService().createSipApplicationSessionTimerTask(sipApplicationSession);
-				sipApplicationSession.setExpirationTimerTask(expirationTimerTask);					
+				if (sipContext == null) {
+					logger.info("Sip context has been already destroyed");
+					return;
+				}
+				SipApplicationSessionTimerService sASTimerService = sipContext.getSipApplicationSessionTimerService();
+				if (sASTimerService == null) {
+					logger.info("Sip application session timer service has been already destroyed");
+					return;
+				}
+				final SipApplicationSessionTimerTask expirationTimerTask = sASTimerService.createSipApplicationSessionTimerTask(sipApplicationSession);
+				sipApplicationSession.setExpirationTimerTask(expirationTimerTask);
 				sipContext.getSipApplicationSessionTimerService().schedule(expirationTimerTask, sleep, TimeUnit.MILLISECONDS);
 			} else {
 				tryToExpire();
