@@ -19,8 +19,6 @@
 
 package org.mobicents.servlet.sip.address;
 
-import gov.nist.javax.sip.parser.Lexer;
-
 import java.text.ParseException;
 import java.util.Iterator;
 
@@ -28,6 +26,8 @@ import javax.servlet.sip.TelURL;
 
 import org.apache.log4j.Logger;
 import org.mobicents.servlet.sip.message.SipFactoryImpl;
+
+import gov.nist.javax.sip.parser.Lexer;
 
 /**
  * Wrapper class for servlet TelURL. Would be nice if the javax.sip and servlet
@@ -70,8 +70,7 @@ public class TelURLImpl extends URIImpl implements TelURL {
 	 */
 	public void setPhoneNumber(String number) {
 		telUrl.setGlobal(true);
-		setPhoneNumberInternal(number);
-
+		setPhoneNumberInternal(number, true);
 		try {
 			telUrl.setPhoneContext(null);
 		} catch (ParseException e) {
@@ -80,13 +79,17 @@ public class TelURLImpl extends URIImpl implements TelURL {
 		}
 	}
 
-	protected void setPhoneNumberInternal(String number) {
+	protected void setPhoneNumberInternal(String number, boolean isGlobal) {
 		String phoneNumber = number;
 		if(number.startsWith("+")) {
 			phoneNumber = phoneNumber.substring(1);
 		}
 		try {
-			basePhoneNumber(phoneNumber);
+			if (isGlobal) {
+				baseGlobalPhoneNumber(phoneNumber);
+			} else {
+				baseLocalPhoneNumber(phoneNumber);
+			}
 			telUrl.setPhoneNumber(phoneNumber);
 		} catch (ParseException ex) {
 			logger.error("Error setting phone number " + number);
@@ -202,7 +205,7 @@ public class TelURLImpl extends URIImpl implements TelURL {
 			throw new IllegalArgumentException("phone number " + number + " is invalid, local phone number cannot start with +");
 		}
 		telUrl.setGlobal(false);
-		setPhoneNumberInternal(number);
+		setPhoneNumberInternal(number, false);
 		try {
 			telUrl.setPhoneContext(phoneContext);
 		} catch (ParseException ex) {
@@ -211,30 +214,49 @@ public class TelURLImpl extends URIImpl implements TelURL {
 		}
 	}
 
-	// there might be a bug in the jsip impl in URLParser class need to check with ranga after TCK is done
-	// the part in comment 
-	private final static String basePhoneNumber(String number) throws ParseException {
+	private final static boolean isVisualSeparator(char ch) {
+		return (ch == '-' || ch == '.' || ch == '(' || ch == ')');
+	}
+
+	// According to RFC3966
+	//   local-number-digits  =  *phonedigit-hex (HEXDIG / "*" / "#")*phonedigit-hex
+	//   phonedigit-hex       = HEXDIG / "*" / "#" / [ visual-separator ]
+	//   visual-separator     = "-" / "." / "(" / ")"
+	private final static String baseLocalPhoneNumber(String number) throws ParseException {
 		StringBuffer s = new StringBuffer();
 		Lexer lexer = new Lexer("sip_urlLexer", number);
-		
-		int lc = 0;
+
+		while (lexer.hasMoreChars()) {
+			char w = lexer.lookAhead(0);
+			if (Lexer.isHexDigit(w)
+				|| w == '*'
+				|| w == '#'
+				|| isVisualSeparator(w)) {
+				lexer.consume(1);
+				s.append(w);
+			} else {
+				throw new IllegalArgumentException("unexpected " + w + " in the phone number");
+			}
+		}
+		return s.toString();
+	}
+
+	// there might be a bug in the jsip impl in URLParser class need to check with ranga after TCK is done
+	// the part in comment 
+	private final static String baseGlobalPhoneNumber(String number) throws ParseException {
+		StringBuffer s = new StringBuffer();
+		Lexer lexer = new Lexer("sip_urlLexer", number);
+
 		while (lexer.hasMoreChars()) {
 			char w = lexer.lookAhead(0);
 			if (Lexer.isDigit(w)
-				|| w == '-'
-				|| w == '.'
-				|| w == '('
-				|| w == ')') {
+				|| isVisualSeparator(w)) {
 				lexer.consume(1);
 				s.append(w);
-				lc++;
-			}
-//				else if (lc > 0)
-//					break;
-			else
+			} else {
 				throw new IllegalArgumentException("unexpected " + w + " in the phone number");
+			}
 		}
 		return s.toString();
-
 	}
 }
