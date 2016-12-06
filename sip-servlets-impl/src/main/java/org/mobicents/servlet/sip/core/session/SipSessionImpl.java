@@ -163,6 +163,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 	
 	protected transient SipPrincipal userPrincipal;
 	
+	/** The locally stored value of the remote CSeq. */
 	protected long cseq = -1;
 	
 	protected String transport;
@@ -601,7 +602,8 @@ public class SipSessionImpl implements MobicentsSipSession {
 							originalCallId,
 							fromHeader.getTag());						
 						final Request request = ((Request)sipServletRequest.getMessage());
-						sipServletRequest.getSipSession().setCseq(((CSeqHeader)request.getHeader(CSeqHeader.NAME)).getSeqNumber());
+						// This would always set cseq to 1, as that's the default set by the sipFactory. setCSeq should not be called for outgoing requests.
+						// sipServletRequest.getSipSession().setCseq(((CSeqHeader)request.getHeader(CSeqHeader.NAME)).getSeqNumber());
 						final Map<String, String> fromParameters = new HashMap<String, String>();
 						final Iterator<String> fromParameterNames = fromHeader.getParameterNames();
 						while (fromParameterNames.hasNext()) {
@@ -1598,6 +1600,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 		}
 	}
 	
+	// TODO: should this method really be called on all transaction terminations?
 	public void cleanDialogInformation(boolean terminate) {
 		if(logger.isDebugEnabled()) {
 			logger.debug("cleanDialogInformation "+ sessionCreatingDialog);
@@ -1607,20 +1610,34 @@ public class SipSessionImpl implements MobicentsSipSession {
 				((TransactionApplicationData)sessionCreatingDialog.getApplicationData()).getSipServletMessage() != null) {
 			TransactionApplicationData dialogAppData = ((TransactionApplicationData)sessionCreatingDialog.getApplicationData());
 			SipServletMessageImpl sipServletMessage = dialogAppData.getSipServletMessage();
+			long sessionCreatingTransactionCSeq = ((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber();
 			if(logger.isDebugEnabled()) {
 				logger.debug("trying to cleanup message "+ sipServletMessage + " and related dialog app data " + dialogAppData);
-				logger.debug("is dialog established " + (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) && isAckReceived(((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber())));
+				logger.debug("is dialog server? " + sessionCreatingDialog.isServer());
+				logger.debug("dialog state: " + sessionCreatingDialog.getState());
 				logger.debug("is dialog creating method " + JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod()));
 				logger.debug("is dialog terminating method " + JainSipUtils.DIALOG_TERMINATING_METHODS.contains(sipServletMessage.getMethod()));
 			}
 			boolean cleanDialog = false;
-			if((Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod()) && isAckReceived(((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber()))) {
-				if(logger.isDebugEnabled()) {
-					logger.debug("cleaning INVITE and ack received for it for dialog "+ sessionCreatingDialog);
+			if (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) { // INVITE based dialog
+				if (!sessionCreatingDialog.getState().equals(DialogState.EARLY)) { // CONFIRMED or TERMINATED
+					// server dialog, isAckReceived should be used to check that an ACK has arrived
+					if (sessionCreatingDialog.isServer() && isAckReceived(sessionCreatingTransactionCSeq)) {
+						if (logger.isDebugEnabled()) {
+							logger.debug("cleaning INVITE and ACK received for it for confirmed server dialog "	+ sessionCreatingDialog);
+						}
+						cleanDialog = true;
+					} else if (!sessionCreatingDialog.isServer()) { // client dialog, isAckReceived cannot be used
+						if (logger.isDebugEnabled()) {
+							logger.debug("cleaning INVITE and ACK received for it for confirmed client dialog "	+ sessionCreatingDialog);
+						}
+						cleanDialog = true;
+					}
 				}
-				cleanDialog = true;
-			}
-			if(!Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) {
+				if(!cleanDialog && logger.isDebugEnabled()) {
+					logger.debug("Should not clean dialog creating INVITE transaction for dialog " + sessionCreatingDialog);
+				}
+			} else { // not INVITE based dialog
 				if(JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod())) {
 					if(logger.isDebugEnabled()) {
 						logger.debug("cleaning non INVITE Dialog creating method " + sipServletMessage.getMethod());
@@ -2404,12 +2421,23 @@ public class SipSessionImpl implements MobicentsSipSession {
 			return true;
 		}
 		Boolean ackReceived = acksReceived.get(cSeq);
+		boolean isExceededCSeq = this.cseq > cSeq;
 		if(logger.isDebugEnabled()) {
 			logger.debug("isAckReceived for CSeq " + cSeq +" : " + ackReceived);
 		}
-		if(ackReceived == null) {
-			// if there is no value for it it means that it is a retransmission 
-			return true;
+		if(ackReceived == null){
+			// if there is no value for it AND the remote CSeq was already exceeded in a previous request that arrived,
+			// it means that it is a retransmission, and the value was already cleaned
+			if (isExceededCSeq) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("isAckReceived: CSeq exceeded => retransmission");
+				}
+				return true;
+			} else {
+				// this means that the acksReceived map was cleaned too early, which is not intended
+				logger.warn("isAckReceived: CSeq not exceeded but ackReceived is null, this shouldn't happen!");
+				return false;
+			}
 		}
 		return ackReceived;
 	}
@@ -2447,7 +2475,9 @@ public class SipSessionImpl implements MobicentsSipSession {
 	//CSeq validation should only be done for non proxy applications
 	public boolean validateCSeq(MobicentsSipServletRequest sipServletRequest) {
 		final Request request = (Request) sipServletRequest.getMessage();
-		final long localCseq = cseq;		
+		// locallyStoredRemoteCSeq:
+		final long localCseq = cseq;
+		// currentlyReceivedRemoteCSeq:
 		final long remoteCSeq =  ((CSeqHeader) request.getHeader(CSeqHeader.NAME)).getSeqNumber();
 		final String method = request.getMethod();
 		final boolean isAck = Request.ACK.equalsIgnoreCase(method);
@@ -2463,13 +2493,13 @@ public class SipSessionImpl implements MobicentsSipSession {
 			if(logger.isDebugEnabled()) {
 				logger.debug("localCSeq : " + localCseq + ", remoteCSeq : " + remoteCSeq);
 			}
-			setAckReceived(remoteCSeq, true);			
+			setAckReceived(remoteCSeq, true);
 		} 	
 		if(localCseq == remoteCSeq && !isAck) {
 			logger.debug("dropping retransmission " + request + " since it matches the current sip session cseq " + localCseq);
 			return false;
 		}		
-		if(localCseq > remoteCSeq) {				
+		if(localCseq > remoteCSeq) {
 			if(!isAck && !isPrackCancel) {
 				logger.error("CSeq out of order for the following request " + sipServletRequest);
 				if(Request.INVITE.equalsIgnoreCase(method)) {

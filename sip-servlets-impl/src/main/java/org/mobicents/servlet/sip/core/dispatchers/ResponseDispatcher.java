@@ -399,12 +399,33 @@ public class ResponseDispatcher extends MessageDispatcher {
 					}
 					try {
 						try {														
+							logger.debug("DispatchTask: dialog=" + dialog + ", response="+sipServletResponse
+									+ ", current sessionCreatingTxRq=" + session.getSessionCreatingTransactionRequest()
+									+ ", current sessionCreatingDg="+session.getSessionCreatingDialog());
 							// we store the request only if the dialog is null and the method is not a dialog creating one
-//							if(dialog == null) {
-								session.setSessionCreatingTransactionRequest(sipServletResponse);
-//							} else {
-								session.setSessionCreatingDialog(dialog);
-//							}
+							// don't override if set already
+							if (session.getSessionCreatingDialog() == null
+									&& session.getSessionCreatingTransactionRequest() == null) {
+								if (JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletResponse.getMethod())) {
+									if (dialog != null) {
+										logger.debug("Setting session creating dialog from this response: "
+												+ response);
+										session.setSessionCreatingDialog(dialog);
+									} else {
+										logger.warn("No dialog found for dialog creating response: "
+												+ response);
+									}
+								} else {
+									if (dialog == null) {
+										logger.debug("Setting session creating Tx Req from this response: "
+												+ response);
+										session.setSessionCreatingTransactionRequest(sipServletResponse);
+									} else {
+										logger.warn("Not dialog creating response created a dialog");
+									}
+								}
+							}
+
 							if(originalRequest != null) {				
 								originalRequest.setResponse(sipServletResponse);					
 							}
