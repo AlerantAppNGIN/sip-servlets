@@ -25,6 +25,7 @@ package org.mobicents.servlet.sip.core;
 import gov.nist.javax.sip.ListeningPointExt;
 
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -379,7 +380,11 @@ public class SipNetworkInterfaceManagerImpl implements SipNetworkInterfaceManage
 	 * @return immutable List containing the SipURI representation of IP addresses 
 	 */
 	public List<SipURI> getOutboundInterfaces() {
-		return Collections.unmodifiableList(outboundInterfaces);
+		List<SipURI> ret = new ArrayList<>();
+		for (SipURI sipUri : outboundInterfaces) {
+			ret.add((SipURI) sipUri.clone());
+		}
+		return Collections.unmodifiableList(ret);
 	}
 	
 	/**
