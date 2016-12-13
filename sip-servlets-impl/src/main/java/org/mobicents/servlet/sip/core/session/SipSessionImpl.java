@@ -1611,16 +1611,17 @@ public class SipSessionImpl implements MobicentsSipSession {
 			TransactionApplicationData dialogAppData = ((TransactionApplicationData)sessionCreatingDialog.getApplicationData());
 			SipServletMessageImpl sipServletMessage = dialogAppData.getSipServletMessage();
 			long sessionCreatingTransactionCSeq = ((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber();
+			DialogState dialogState = sessionCreatingDialog.getState(); // could return null!
 			if(logger.isDebugEnabled()) {
 				logger.debug("trying to cleanup message "+ sipServletMessage + " and related dialog app data " + dialogAppData);
 				logger.debug("is dialog server? " + sessionCreatingDialog.isServer());
-				logger.debug("dialog state: " + sessionCreatingDialog.getState());
+				logger.debug("dialog state: " + dialogState);
 				logger.debug("is dialog creating method " + JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod()));
 				logger.debug("is dialog terminating method " + JainSipUtils.DIALOG_TERMINATING_METHODS.contains(sipServletMessage.getMethod()));
 			}
 			boolean cleanDialog = false;
 			if (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) { // INVITE based dialog
-				if (!sessionCreatingDialog.getState().equals(DialogState.EARLY)) { // CONFIRMED or TERMINATED
+				if (DialogState.CONFIRMED.equals(dialogState) || DialogState.TERMINATED.equals(dialogState)) { // not EARLY or NULL_STATE
 					// server dialog, isAckReceived should be used to check that an ACK has arrived
 					if (sessionCreatingDialog.isServer() && isAckReceived(sessionCreatingTransactionCSeq)) {
 						if (logger.isDebugEnabled()) {
