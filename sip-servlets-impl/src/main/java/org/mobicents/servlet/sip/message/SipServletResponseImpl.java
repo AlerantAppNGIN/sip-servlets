@@ -744,7 +744,7 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 				}
 			}
 			//the message is an incoming reliable provisional response for which PRACK has already been generated. (Note that this scenario applies to containers that support the 100rel extension.)
-			if(tx instanceof ClientTransaction && getStatus() >= 101 && getStatus() <= 199 && getHeader("RSeq") != null && TransactionState.TERMINATED.equals(tx.getState())) {
+			if(tx instanceof ClientTransaction && getStatus() >= 101 && getStatus() <= 199 && getHeader("RSeq") != null && isPrackGenerated) {
 				if(this.proxyBranch == null) { // Make sure this is not a proxy. Proxies are allowed to modify headers.
 					return true;
 				} else {
