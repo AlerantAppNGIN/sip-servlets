@@ -1108,7 +1108,26 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 			MobicentsExtendedListeningPoint matchingListeningPoint = null;
 			// Issue 159 : http://code.google.com/p/sipservlets/issues/detail?id=159 
 		    // Bad choice of connectors when multiple of the same transport are available			
-			String outboundInterface = session.getOutboundInterface();
+			String outboundInterface = null;
+			// CANCEL must always be sent on the same interface as the INVITE was that it cancels.
+			// This is chosen based on the top Via header of that INVITE.
+			if (Request.CANCEL.equals(requestMethod)) {
+				Request inviteToCancel = inviteTransactionToCancel == null ? null : inviteTransactionToCancel.getRequest();
+				ViaHeader viaHeader = inviteToCancel == null ? null : (ViaHeader) inviteToCancel.getHeader(ViaHeader.NAME);
+				if (viaHeader != null) {
+					outboundInterface = "sip:" + viaHeader.getHost() + ":" + viaHeader.getPort() + ";transport=" + viaHeader.getTransport();
+					if (logger.isDebugEnabled()) {
+						logger.debug("CANCEL request: using outbound interface based on top Via header from INVITE to cancel: "	+ viaHeader);
+					}
+				} else {
+					logger.warn("CANCEL request: missing invite "
+							+ (viaHeader == null ? "via header" : inviteToCancel == null ? "request" : "transaction")
+							+ ", cannot determine which outbound interface to use. Falling back to session's outbound interface");
+				}
+			}
+			if (outboundInterface == null) {
+				outboundInterface = session.getOutboundInterface();
+			}
 			if(outboundInterface != null) {
 				if(logger.isDebugEnabled()) {
 					logger.debug("Trying to find listening point with outbound interface " + outboundInterface);
@@ -1545,13 +1564,10 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 						}
 					}
 				}
-				//Issue: https://code.google.com/p/sipservlets/issues/detail?id=210
-				String outboundInterface = this.getSipSession().getOutboundInterface();
-				if(outboundInterface != null){
-					javax.sip.address.SipURI outboundInterfaceURI = (javax.sip.address.SipURI) SipFactoryImpl.addressFactory.createURI(outboundInterface);
-					ipAddressToCheckAgainst = ((gov.nist.javax.sip.address.SipUri)outboundInterfaceURI).getHost();
-				}
 				
+				// The mobicentsExtendedListeningPoint was already set to the session's outbound interface if necessary in send(Hop),
+				// which is our only calling method, so there's no need to check the outbound interface again here,
+				// especially since it is discarded for CANCEL requests.
 				
 				if(!viaHeader.getHost().equalsIgnoreCase(ipAddressToCheckAgainst) || 
 						!viaHeader.getTransport().equalsIgnoreCase(sipConnector.getTransport()) ||
@@ -1565,6 +1581,8 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 					if(logger.isTraceEnabled()) {
 						logger.trace("Via updated to outbound SIP Connector picked by the container " + viaHeader);
 					}
+				} else {
+					logger.trace("Via header and SIP connector picked by the container match");
 				}
 			}
 		}

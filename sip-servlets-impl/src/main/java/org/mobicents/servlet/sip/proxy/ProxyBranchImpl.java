@@ -91,7 +91,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private static final Logger logger = Logger.getLogger(ProxyBranchImpl.class);
 	private transient ProxyImpl proxy;
 	private transient SipServletRequestImpl originalRequest;
-	private transient SipServletRequestImpl originalInviteRequest;
+	private transient SipServletRequestImpl originalBranchRequest;
 	private transient SipServletRequestImpl prackOriginalRequest;
 	// From javadoc : object representing the request that is or to be proxied.
 	private transient SipServletRequestImpl outgoingRequest;
@@ -152,7 +152,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		this.proxy = proxy;
 		isAddToPath = proxy.getAddToPath();
 		this.originalRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
-		this.originalInviteRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
+		this.originalBranchRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
 		if(proxy.recordRouteURI != null) {
 		this.recordRouteURI = proxy.recordRouteURI;
 		}
@@ -205,16 +205,12 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		
 		try {			
 			cancelTimer();
-			if(this.isStarted() && !canceled && !timedOut &&
-					(outgoingRequest.getMethod().equalsIgnoreCase(Request.INVITE) ||
-							outgoingRequest.getMethod().equalsIgnoreCase(Request.INFO) ||
-							// https://code.google.com/p/sipservlets/issues/detail?id=253
-							outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK) ||
-							// https://code.google.com/p/sipservlets/issues/detail?id=33
-							outgoingRequest.getMethod().equalsIgnoreCase(Request.UPDATE))) {
+			// CANCEL can only be sent if the branch was started for an INVITE transaction
+			if (this.isStarted() && !canceled && !timedOut && originalBranchRequest.getMethod().equalsIgnoreCase(Request.INVITE)) {
 				if(lastResponse != null) { /* According to SIP RFC we should send cancel only if we receive any response first*/
 					if(logger.isDebugEnabled()) {
-						logger.debug("Trying to cancel ProxyBranch for outgoing request " + outgoingRequest);
+						logger.debug("Trying to cancel ProxyBranch with last outgoing request: " + outgoingRequest
+								+ "\n and original branch request: " + originalBranchRequest);
 					}
 					if(lastResponse.getStatus() > Response.OK && !recursedBranches.isEmpty()) {
 						//  Javadoc says it should throw an java.lang.IllegalStateException if the transaction has already been completed and it has no child branches
@@ -223,36 +219,44 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 						}
 						return;
 					}
-					SipServletRequest cancelRequest = null;
-					if(outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK) || outgoingRequest.getMethod().equalsIgnoreCase(Request.UPDATE) || outgoingRequest.getMethod().equalsIgnoreCase(Request.INFO)) {
-						// https://code.google.com/p/sipservlets/issues/detail?id=253 and https://code.google.com/p/sipservlets/issues/detail?id=33
-						// in case of PRACK or UPDATE we need to take the original INVITE
-						cancelRequest = originalInviteRequest.getLinkedRequest().createCancel();
-					} else {
-						cancelRequest = outgoingRequest.createCancel();
-					}
 					
-					//https://code.google.com/p/sipservlets/issues/detail?id=272 Adding reason headers if needed
-					if(protocol != null && reasonCode != null && reasonText != null
-							&& protocol.length == reasonCode.length && reasonCode.length == reasonText.length) {
-						for (int i = 0; i < protocol.length; i++) {
-							String reasonHeaderValue = protocol[i] + ";cause=" + reasonCode[i];
-							if(reasonText[i] != null && reasonText[i].trim().length() > 0) {
-								reasonHeaderValue = reasonHeaderValue.concat(";text=\"" + reasonText[i] + "\"");
+					SipServletRequest inviteToCancel = originalBranchRequest.getLinkedRequest();
+					if (logger.isDebugEnabled()) {
+						logger.debug("Original outgoing branch request to cancel: " + inviteToCancel);
+					}
+					SIPClientTransaction tx = (SIPClientTransaction) ((SipServletRequestImpl) inviteToCancel).getTransaction();
+					if (logger.isDebugEnabled()) {
+						logger.debug("Original outgoing branch request transaction: " + tx);
+					}
+					if (tx != null) {
+						// even if in-dialog requests such as PRACK/INFO/UPDATE were sent during the early dialog, the CANCEL is always sent
+						// for the original INVITE
+						SipServletRequest cancelRequest = inviteToCancel.createCancel();
+
+						//https://code.google.com/p/sipservlets/issues/detail?id=272 Adding reason headers if needed
+						if(protocol != null && reasonCode != null && reasonText != null
+								&& protocol.length == reasonCode.length && reasonCode.length == reasonText.length) {
+							for (int i = 0; i < protocol.length; i++) {
+								String reasonHeaderValue = protocol[i] + ";cause=" + reasonCode[i];
+								if(reasonText[i] != null && reasonText[i].trim().length() > 0) {
+									reasonHeaderValue = reasonHeaderValue.concat(";text=\"" + reasonText[i] + "\"");
+								}
+								((SipServletRequestImpl)cancelRequest).setHeaderInternal("Reason", reasonHeaderValue, false);
+
 							}
-							((SipServletRequestImpl)cancelRequest).setHeaderInternal("Reason", reasonHeaderValue, false);
-							
 						}
-					}
 
-					if (originalCancelRequest != null && originalCancelRequest.getContentType() != null) {
-						cancelRequest.setContent(originalCancelRequest.getRawContent(), originalCancelRequest.getContentType());
+						if (originalCancelRequest != null && originalCancelRequest.getContentType() != null) {
+							cancelRequest.setContent(originalCancelRequest.getRawContent(), originalCancelRequest.getContentType());
+						}
+						if (logger.isDebugEnabled()) {
+							logger.debug("Trying to send downstream CANCEL request: " + cancelRequest);
+						}
+						cancelRequest.send();
 					}
-
-					cancelRequest.send();
 				} else {
 					// We dont send cancel, but we must stop the invite retrans
-					SIPClientTransaction tx = (SIPClientTransaction) outgoingRequest.getTransaction();
+					SIPClientTransaction tx = (SIPClientTransaction) originalBranchRequest.getLinkedRequest().getTransaction();
 
 					if(tx != null) {
 						StaticServiceHolder.disableRetransmissionTimer.invoke(tx);
@@ -272,6 +276,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				}
 				canceled = true;
 			}
+			// FIXME: a branch should always be canceled after a call to cancel(), so why check for the method of the current request???
 			if(!this.isStarted() &&
 					(outgoingRequest.getMethod().equalsIgnoreCase(Request.INVITE) ||
 							// https://code.google.com/p/sipservlets/issues/detail?id=253
