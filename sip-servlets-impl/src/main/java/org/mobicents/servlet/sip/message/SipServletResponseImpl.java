@@ -308,7 +308,7 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 					false); 
 			isPrackGenerated = true;
 		} catch (SipException e) {
-			logger.error("Impossible to create the ACK",e);
+			logger.error("Impossible to create the PRACK",e);
 		}		
 		return sipServletPrackRequest;
 	}
@@ -707,7 +707,20 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 	public void setProxyBranch(MobicentsProxyBranch proxyBranch) {
 		this.proxyBranch = proxyBranch;
 		// doBranchResponse is only called for intermediate branch final responses
-		if(proxyBranch != null && getStatus() >= 200) {
+
+		// Those can only be non-2xx final responses received for the initial
+		// request of the dialog. Subsequent requests in a dialog (e.g. PRACK,
+		// UPDATE, INFO) are never forked and thus never have intermediate final
+		// responses, even if they are sent within the context of an early
+		// dialog for which no final response for the initial request has arrived yet.
+
+		// 2xx responses are always forwarded upstream, even if they resulted
+		// from downstream forking and created a new cloned session. As such,
+		// they are never considered intermediate responses.
+
+		// TODO what if e.g. a MESSAGE is proxied to several targets outside of a dialog?
+		if (proxyBranch != null && getStatus() >= 300 && getRequest().isInitial()
+				&& JainSipUtils.DIALOG_CREATING_METHODS.contains(getMethod())) {
 			this.branchResponse = true;
 		}
 	}

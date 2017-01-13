@@ -489,11 +489,12 @@ public class ResponseDispatcher extends MessageDispatcher {
 								// Notfiy the servlet
 								if(logger.isDebugEnabled()) {
 									logger.debug("Is Supervised enabled for this proxy branch ? " + proxy.getSupervised());
+									logger.debug("Is intermediate final branch response? " + sipServletResponse.isBranchResponse());
 								}
 								if(proxy.getSupervised() && status != Response.TRYING) {
 									callServlet(sipServletResponse);
 								}
-								if(status == 487 && proxy.allResponsesHaveArrived()) {
+								if(status == 487 && proxy.allResponsesHaveArrived()) { // FIXME: only do this for INVITE responses!!!
 									session.setState(State.TERMINATED);									
 									if(logger.isDebugEnabled()) {
 										logger.debug("Received 487 on a proxy branch and we are not waiting on other branches. Setting state to TERMINATED for session " + session);										
