@@ -1591,7 +1591,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 				// or proxy case or dialog creating methods
 				if(sessionCreatingDialog != null || proxy != null || JainSipUtils.DIALOG_CREATING_METHODS.contains(sessionCreatingTransactionRequestMethod)) {
 					if(logger.isDebugEnabled() && sessionCreatingTransactionRequest != null) {
-						logger.debug("nullifying  sessionCreatingTransactionRequest" + sessionCreatingTransactionRequest 
+						logger.debug("nullifying  sessionCreatingTransactionRequest " + sessionCreatingTransactionRequest 
 								+ " from Session " + key);
 					}
 					sessionCreatingTransactionRequest = null;
@@ -1916,7 +1916,7 @@ public class SipSessionImpl implements MobicentsSipSession {
     	// and has not initiated any new requests (does not have any pending transactions)."
     	if(logger.isDebugEnabled()) {
     		if(ongoingTransactions != null) {
-    			logger.debug("ongoingTransactions " + ongoingTransactions.isEmpty() + " for sipsession " + key);
+				logger.debug("ongoingTransactions " + (ongoingTransactions.isEmpty() ? "not present" : "present") + " for sipsession " + key);
     		} else {
     			logger.debug("ongoingTransactions " + null + " for sipsession " + key);
     		}

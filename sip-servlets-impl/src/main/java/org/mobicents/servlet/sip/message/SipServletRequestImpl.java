@@ -306,6 +306,10 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		if(RoutingState.CANCELLED.equals(routingState)) {
 			throw new IllegalStateException("Cannot create a response for the invite, a CANCEL has been received and the INVITE was replied with a 487!");
 		}
+		if(RoutingState.FINAL_RESPONSE_SENT.equals(routingState)) {
+			throw new IllegalStateException("Cannot create a response for this " + method
+					+ " request, a final response has already been sent!");
+		}
 		if(validate) {
 			if (transaction == null) {
 				throw new IllegalStateException(
@@ -326,7 +330,7 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 			final MobicentsSipSession session = getSipSession();
 			final String requestMethod = getMethod();
 			//add a To tag for all responses except Trying (or trying too if it's a subsequent request)
-			if((statusCode > Response.TRYING || !isInitial()) && statusCode <= Response.SESSION_NOT_ACCEPTABLE) {
+			if(statusCode > Response.TRYING || !isInitial()) {
 				final ToHeader toHeader = (ToHeader) response
 					.getHeader(ToHeader.NAME);
 				// If we already have a to tag, dont create new
@@ -436,8 +440,7 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 					response, 
 					validate ? (ServerTransaction) transaction : transaction, session, getDialog(), hasBeenReceived, false);
 			newSipServletResponse.setOriginalRequest(this);
-			if(!Request.PRACK.equals(requestMethod) && statusCode >= Response.OK && 
-					statusCode <= Response.SESSION_NOT_ACCEPTABLE) {	
+			if(statusCode >= Response.OK) {
 				isFinalResponseGenerated = true;
 			}
 			if(statusCode >= Response.TRYING && 
@@ -587,13 +590,21 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 	 * @see javax.servlet.sip.SipServletMessage#isCommitted()
 	 */
 	public boolean isCommitted() {		
-		//the message is an incoming request for which a final response has been generated
-		if(getTransaction() instanceof ServerTransaction && 
-				(RoutingState.FINAL_RESPONSE_SENT.equals(routingState) || isFinalResponseGenerated)) {
+		// a) the message is an incoming request for which a final response has been generated
+		// Don't check the transaction, as it might have been deleted already
+		// after it transitioned to TERMINATED state.
+		// Don't check the routing state: both CANCELLED and FINAL_RESPONSE_SENT
+		// can only occur after a response has already been created, in which
+		// case isFinalResponseGenerated is set.
+		// Note also that a response cannot be generated for the request of a
+		// client transaction, except for timed-out requests where the container
+		// generates a local answer. However, these requests would be considered
+		// committed anyway as they are outgoing.
+		if (isFinalResponseGenerated) {
 			return true;
 		}
-		//the message is an outgoing request which has been sent
-		if(getTransaction() instanceof ClientTransaction && this.isMessageSent) {
+		// b) the message is an outgoing request which has been sent
+		if (this.isMessageSent) {
 			return true;
 		}
 		/*

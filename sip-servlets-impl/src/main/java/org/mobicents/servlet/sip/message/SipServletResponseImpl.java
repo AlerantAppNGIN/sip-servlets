@@ -491,8 +491,7 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 			// we add a record route
 			if(proxy != null && proxy.getFinalBranchForSubsequentRequests() == null &&
 						proxyBranch != null && proxyBranch.getRecordRoute() && 
-						statusCode > Response.TRYING && 
-						statusCode <= Response.SESSION_NOT_ACCEPTABLE) {	
+						statusCode > Response.TRYING) {
 				//Issue 112 fix by folsson: use the viaheader transport				
 				final javax.sip.address.SipURI sipURI = JainSipUtils.createRecordRouteURI(
 						sipFactoryImpl.getSipNetworkInterfaceManager(), 
@@ -604,8 +603,7 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 //					response.getStatusCode() < Response.OK) {				
 //				originalRequest.setRoutingState(RoutingState.INFORMATIONAL_RESPONSE_SENT);				
 //			}
-			if(statusCode >= Response.OK && 
-					statusCode <= Response.SESSION_NOT_ACCEPTABLE) {				
+			if(statusCode >= Response.OK) {				
 				originalRequest.setRoutingState(RoutingState.FINAL_RESPONSE_SENT);				
 			}
 			if(originalRequest != null) {				
