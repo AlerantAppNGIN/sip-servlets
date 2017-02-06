@@ -412,7 +412,8 @@ public class ResponseDispatcher extends MessageDispatcher {
 												+ response);
 										session.setSessionCreatingDialog(dialog);
 									} else {
-										logger.warn("No dialog found for dialog creating response: "
+										//TODO: is it correct to have no dialog for 302 response
+										logger.debug("No dialog found for dialog creating response: "
 												+ response);
 									}
 								} else {
