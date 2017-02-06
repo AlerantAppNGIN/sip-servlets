@@ -611,29 +611,43 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 											logger.debug("NOTIFY Request and response not yet received at proxy, checking request's To header tag against proxyBranch's request From tag " +
 													"in order to identify the proxyBranch for this request ");
 										}
-								        // No Response from SUBSCRIBE before receiving NOTIFY
-								        SipServletRequestImpl subscribeRequest = (SipServletRequestImpl)(proxyBranch.getRequest());
-								        String subscribeFromTag = ((MessageExt)subscribeRequest.getMessage()).getFromHeader().getTag();
-								        
-								        if (subscribeFromTag.equals(requestToTag) ) { 
-								          finalBranch = proxyBranch;
-								          checkRequestURIForNonCompliantAgents(finalBranch, request);
-								          finalBranch.proxySubsequentRequest(sipServletRequest);
-								        } 
-								    } else {
-								    	if(logger.isDebugEnabled()){
-											logger.debug("Checking request's To header tag against proxyBranch's From tag and To tag" +
-													"in order to identify the proxyBranch for this request ");
-										}
-										String proxyToTag = ((MessageExt)proxyResponse.getMessage()).getToHeader().getTag();
-										String proxyFromTag = ((MessageExt)proxyResponse.getMessage()).getFromHeader().getTag();
+										// No Response from SUBSCRIBE before receiving NOTIFY
+										SipServletRequestImpl subscribeRequest = (SipServletRequestImpl)(proxyBranch.getRequest());
+										String subscribeFromTag = ((MessageExt)subscribeRequest.getMessage()).getFromHeader().getTag();
 
-										if (proxyToTag.equals(requestToTag) || proxyFromTag.equals(requestToTag) ) { 
+										if (subscribeFromTag.equals(requestToTag) ) {
 											finalBranch = proxyBranch;
 											checkRequestURIForNonCompliantAgents(finalBranch, request);
 											finalBranch.proxySubsequentRequest(sipServletRequest);
 										}
-								    }
+									} else {
+										if(logger.isDebugEnabled()){
+											logger.debug("Checking request's To header tag against proxyBranch's From tag and To tag" +
+													"in order to identify the proxyBranch for this request ");
+										}
+
+										String proxyToTag = ((MessageExt)proxyResponse.getMessage()).getToHeader().getTag();
+										String proxyFromTag = ((MessageExt)proxyResponse.getMessage()).getFromHeader().getTag();
+
+										if (proxyToTag == null || proxyFromTag == null) {
+											logger.warn("Proxy lastResponse has no to or from tag. lastResponse=" + (MessageExt)proxyResponse.getMessage());
+											 if (isPrack) {
+													String origRemoteTag = ((MessageExt)((SipServletResponseImpl) proxyBranch.getOriginalRequest().getLastInformationalResponse()).getMessage()).getToHeader().getTag();
+													if (requestToTag.equals(origRemoteTag)) {
+														finalBranch = proxyBranch;
+														checkRequestURIForNonCompliantAgents(finalBranch, request);
+														finalBranch.proxySubsequentRequest(sipServletRequest);
+													}
+											} else {
+												//TODO: check whether this can happen for other methods as well.
+												continue;
+											}
+										} else if (proxyToTag.equals(requestToTag) || proxyFromTag.equals(requestToTag) ) {
+											finalBranch = proxyBranch;
+											checkRequestURIForNonCompliantAgents(finalBranch, request);
+											finalBranch.proxySubsequentRequest(sipServletRequest);
+										}
+									}
 								}
 							}
 							if (finalBranch == null && isUpdate){

@@ -402,6 +402,9 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	}
 	
 	public void setResponse(MobicentsSipServletResponse response) {
+		if (lastResponse !=null && response != null && response.getStatus() == 100) {
+			logger.warn("Possible race condition: lastResponse with status " + lastResponse.getStatus() + " is updated with 100 response that should have arrived earlier");
+		}
 		lastResponse = (SipServletResponseImpl) response;
 	}
 
