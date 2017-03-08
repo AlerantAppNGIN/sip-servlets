@@ -605,6 +605,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 									String requestToTag = ((RequestExt)request).getToHeader().getTag();
 
 									SipServletResponseImpl proxyResponse = (SipServletResponseImpl)(proxyBranch.getResponse());
+
 									if (isNotify && proxyResponse == null) {
 										// https://code.google.com/p/sipservlets/issues/detail?id=275
 										if(logger.isDebugEnabled()){
@@ -625,24 +626,11 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 											logger.debug("Checking request's To header tag against proxyBranch's From tag and To tag" +
 													"in order to identify the proxyBranch for this request ");
 										}
+										String proxyToTag = ((ProxyBranchImpl) pb).getToTag();
+										String proxyFromTag = ((ProxyBranchImpl) pb).getFromTag();
 
-										String proxyToTag = ((MessageExt)proxyResponse.getMessage()).getToHeader().getTag();
-										String proxyFromTag = ((MessageExt)proxyResponse.getMessage()).getFromHeader().getTag();
-
-										if (proxyToTag == null || proxyFromTag == null) {
-											logger.warn("Proxy lastResponse has no to or from tag. lastResponse=" + (MessageExt)proxyResponse.getMessage());
-											 if (isPrack) {
-													String origRemoteTag = ((MessageExt)((SipServletResponseImpl) proxyBranch.getOriginalRequest().getLastInformationalResponse()).getMessage()).getToHeader().getTag();
-													if (requestToTag.equals(origRemoteTag)) {
-														finalBranch = proxyBranch;
-														checkRequestURIForNonCompliantAgents(finalBranch, request);
-														finalBranch.proxySubsequentRequest(sipServletRequest);
-													}
-											} else {
-												//TODO: check whether this can happen for other methods as well.
-												continue;
-											}
-										} else if (proxyToTag.equals(requestToTag) || proxyFromTag.equals(requestToTag) ) {
+										if (proxyToTag != null && proxyToTag.equals(requestToTag)
+												|| proxyFromTag != null && proxyFromTag.equals(requestToTag)) {
 											finalBranch = proxyBranch;
 											checkRequestURIForNonCompliantAgents(finalBranch, request);
 											finalBranch.proxySubsequentRequest(sipServletRequest);

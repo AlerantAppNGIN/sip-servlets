@@ -44,6 +44,7 @@ import javax.sip.ClientTransaction;
 import javax.sip.SipException;
 import javax.sip.SipProvider;
 import javax.sip.header.RouteHeader;
+import javax.sip.header.ToHeader;
 import javax.sip.header.ViaHeader;
 import javax.sip.message.Request;
 import javax.sip.message.Response;
@@ -122,6 +123,8 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private boolean isAddToPath;
 	private transient List<ProxyBranch> recursedBranches;
 	private boolean waitingForPrack;
+	private String fromTag;
+	private String toTag;
 	// https://telestax.atlassian.net/browse/MSS-153 not needing to store it
 //	public transient ViaHeader viaHeader;
 	
@@ -152,6 +155,8 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		this.proxy = proxy;
 		isAddToPath = proxy.getAddToPath();
 		this.originalRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
+		this.fromTag = ((MessageExt)originalRequest.getMessage()).getFromHeader().getTag();
+		this.toTag = null;
 		this.originalBranchRequest = (SipServletRequestImpl) proxy.getOriginalRequest();
 		if(proxy.recordRouteURI != null) {
 		this.recordRouteURI = proxy.recordRouteURI;
@@ -400,12 +405,15 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	public MobicentsSipServletResponse getResponse() {
 		return lastResponse;
 	}
-	
+
 	public void setResponse(MobicentsSipServletResponse response) {
-		if (lastResponse !=null && response != null && response.getStatus() == 100) {
-			logger.warn("Possible race condition: lastResponse with status " + lastResponse.getStatus() + " is updated with 100 response that should have arrived earlier");
-		}
 		lastResponse = (SipServletResponseImpl) response;
+		if (this.toTag == null && response.getStatus() != 100) {
+			ToHeader responseToHeader = ((MessageExt)response.getMessage()).getToHeader();
+			if (responseToHeader != null && responseToHeader.getTag() != null) {
+				this.toTag = responseToHeader.getTag();
+			}
+		}
 	}
 
 	/* (non-Javadoc)
@@ -1423,4 +1431,13 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	public boolean isAppSpecifiedRecordRoutingEnabled() {
 		return appSpecifiedRecordRoutingEnabled;
 	}
+
+	public String getFromTag() {
+		return fromTag;
+	}
+
+	public String getToTag() {
+		return toTag;
+	}
+
 }
