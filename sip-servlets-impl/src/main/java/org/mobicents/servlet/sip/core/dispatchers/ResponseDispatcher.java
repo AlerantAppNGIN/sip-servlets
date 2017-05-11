@@ -274,18 +274,25 @@ public class ResponseDispatcher extends MessageDispatcher {
 				}
 				tmpSession = sipManager.getSipSession(sessionKey, false, sipFactoryImpl, sipApplicationSession);				
 			}
+
+			// We also check the To tag in derived sessions, since the previous lookup only checks From tag.
+			if(tmpSession !=null && ((SipStackImpl)sipApplicationDispatcher.getSipStack()).getMaxForkTime() > 0) {
+				if(logger.isDebugEnabled()){
+					logger.debug("trying to find derived session to Tag " + sessionKey.getToTag());
+				}
+				MobicentsSipSession derivedSipSession = tmpSession.findDerivedSipSession(sessionKey.getToTag());
+				if(derivedSipSession != null) {
+					tmpSession = derivedSipSession;
+					if(logger.isDebugEnabled()){
+						logger.debug("derived session found is " + tmpSession);
+					}
+				}
+			}
+
 			if(logger.isDebugEnabled()) {
 				logger.debug("session found is " + tmpSession);
 				if(tmpSession == null) {
 					sipManager.dumpSipSessions();
-				} else if (((SipStackImpl)sipApplicationDispatcher.getSipStack()).getMaxForkTime() > 0) {
-					logger.debug("trying to find derived session to Tag " + sessionKey.getToTag());
-					MobicentsSipSession derivedSipSession = tmpSession.findDerivedSipSession(sessionKey.getToTag());
-					if(derivedSipSession != null) {
-						tmpSession = derivedSipSession;
-						logger.debug("derived session found is " + tmpSession);
-					}
-					
 				}
 			}	
 			
