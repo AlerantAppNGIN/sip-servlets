@@ -502,35 +502,38 @@ public class ResponseDispatcher extends MessageDispatcher {
 								proxyBranch.setResponse(sipServletResponse);
 
 								final ProxyImpl proxy = (ProxyImpl) session.getProxy();
-								// Notfiy the servlet
-								if(logger.isDebugEnabled()) {
-									logger.debug("Is Supervised enabled for this proxy branch ? " + proxy.getSupervised());
-									logger.debug("Is intermediate final branch response? " + sipServletResponse.isBranchResponse());
-								}
-								if(proxy.getSupervised() && status != Response.TRYING) {
-									callServlet(sipServletResponse);
-								}
-								if(status == 487 && proxy.allResponsesHaveArrived()) { // FIXME: only do this for INVITE responses!!!
-									session.setState(State.TERMINATED);									
-									if(logger.isDebugEnabled()) {
-										logger.debug("Received 487 on a proxy branch and we are not waiting on other branches. Setting state to TERMINATED for session " + session);										
-									}																		
-								}
+
 								// Issue http://code.google.com/p/mobicents/issues/detail?id=2616 : Proxy forwards 487 as well as 200 to caller
+								// Don't forward and don't notify servlet either
 								// RFC 3261 Section 16.7 Response Processing. Step 5
 								// After a final response has been sent on the server transaction, the following responses MUST be forwarded immediately:
-						        //     -  Any 2xx response to an INVITE request
-						        // A stateful proxy MUST NOT immediately forward any other responses
-								if(sipServletResponse.getMethod().equals(Request.INVITE) && sipServletResponse.getRequest() != null 
-										&& sipServletResponse.getRequest().isInitial() && proxy.getBestResponseSent() >= 200 && (status <= 200 || status >= 300)) {
+								//     -  Any 2xx response to an INVITE request
+								// A stateful proxy MUST NOT immediately forward any other responses
+								if ((status / 100 != 2) && sipServletResponse.getMethod().equals(Request.INVITE)
+										&& sipServletResponse.getRequest() != null
+										&& sipServletResponse.getRequest().isInitial()
+										&& proxy.getBestResponseSent() >= 200) {
 									if(logger.isDebugEnabled()) {
 										logger.debug("best final response sent " + proxy.getBestResponseSent() + ", response status " + status + " not forwarding response");
 									}
 									return;
 								}
+
+								// Notify the servlet
+								if(logger.isDebugEnabled()) {
+									logger.debug("Is Supervised enabled for this proxy branch ? " + proxy.getSupervised());
+									logger.debug("Is intermediate final branch response? " + sipServletResponse.isBranchResponse());
+								}
 								// Handle it at the branch
-								proxyBranch.onResponse(sipServletResponse, status); 
-								//we don't forward the response here since this has been done by the proxy
+								proxyBranch.onResponse(sipServletResponse, status);
+								// we don't forward the response here since this has been done by the proxy
+
+								if(status == 487 && JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletResponse.getMethod()) && proxy.allResponsesHaveArrived()) {
+									session.setState(State.TERMINATED);
+									if(logger.isDebugEnabled()) {
+										logger.debug("Received 487 on a proxy branch and we are not waiting on other branches. Setting state to TERMINATED for session " + session);
+									}
+								}
 							}
 							else {
 								// Fix for Issue 1689 : Send 100/INVITE immediately or not

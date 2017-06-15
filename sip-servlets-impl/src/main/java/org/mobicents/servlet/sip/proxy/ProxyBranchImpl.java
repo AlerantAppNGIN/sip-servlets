@@ -61,6 +61,7 @@ import org.mobicents.servlet.sip.core.MobicentsExtendedListeningPoint;
 import org.mobicents.servlet.sip.core.RoutingState;
 import org.mobicents.servlet.sip.core.SipApplicationDispatcher;
 import org.mobicents.servlet.sip.core.SipNetworkInterfaceManager;
+import org.mobicents.servlet.sip.core.dispatchers.MessageDispatcher;
 import org.mobicents.servlet.sip.core.message.MobicentsSipServletRequest;
 import org.mobicents.servlet.sip.core.message.MobicentsSipServletResponse;
 import org.mobicents.servlet.sip.core.proxy.MobicentsProxyBranch;
@@ -622,10 +623,23 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		}
 		
 		// Send informational responses back immediately
-		if((status > 100 && status < 200) || (status == 200 &&
+		if((status > 100 && status < 200) || (status >= 200 &&
 				(Request.PRACK.equals(response.getMethod()) || Request.INFO.equals(response.getMethod()) 
 						|| Request.UPDATE.equals(response.getMethod()))))
 		{
+			// notify the application of provisional responses and early-dialog PRACK/INFO/UPDATE responses
+			if(proxy.getSupervised()) {
+				try {
+					MessageDispatcher.callServlet(response);
+				} catch (ServletException e) {
+					throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);
+				} catch (IOException e) {
+					throw new DispatcherException("Unexpected io exception while processing the response : " + response, e);
+				} catch (Throwable e) {
+					throw new DispatcherException("Unexpected exception while processing response : " + response, e);
+				}
+			}
+
 			// Deterimine if the response is reliable. We just look at RSeq, because
 			// every such response is required to have it.
 			if(response.getHeader("RSeq") != null) {
@@ -681,7 +695,21 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		
 		if(status >= 600) // Cancel all 10.2.4
 			this.proxy.cancelAllExcept(this, null, null, null, false);
-		
+
+		// Notify the application of branch responses before acting on redirection, e.g. to disable recursion to a disallowed URI
+		// For final responses, ProxyImpl.sendFinalResponse will do the callback
+		if(proxy.getSupervised() && response.isBranchResponse()) {
+			try {
+				MessageDispatcher.callServlet(response);
+			} catch (ServletException e) {
+				throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);
+			} catch (IOException e) {
+				throw new DispatcherException("Unexpected io exception while processing the response : " + response, e);
+			} catch (Throwable e) {
+				throw new DispatcherException("Unexpected exception while processing response : " + response, e);
+			}
+		}
+
 		// FYI: ACK is sent automatically by jsip when needed
 		
 		boolean recursed = false;
