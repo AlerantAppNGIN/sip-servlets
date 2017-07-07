@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.mobicents.servlet.sip.examples</groupId>
 		<artifactId>sip-servlets-examples-parent</artifactId>
-		<version>3.0.0-tsdp-paas-2</version>
+		<version>3.0.0-tsdp-paas-3</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
