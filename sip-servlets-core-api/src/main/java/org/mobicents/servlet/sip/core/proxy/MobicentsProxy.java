@@ -19,6 +19,7 @@
 
 package org.mobicents.servlet.sip.core.proxy;
 
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.sip.Proxy;
@@ -41,6 +42,5 @@ public interface MobicentsProxy extends Proxy, ProxyExt {
 	void setAckReceived(boolean equalsIgnoreCase);
 	void setOriginalRequest(MobicentsSipServletRequest sipServletRequest);
 	// https://code.google.com/p/sipservlets/issues/detail?id=266
-	void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText, boolean throwExceptionIfCannotCancel);
-	void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText, boolean throwExceptionIfCannotCancel, MobicentsSipServletRequest originalRequest);
+	void cancelAllExcept(ProxyBranch except, List<String> reasonHeaders, boolean throwExceptionIfCannotCancel, MobicentsSipServletRequest originalRequest);
 }

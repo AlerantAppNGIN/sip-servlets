@@ -19,6 +19,8 @@
 
 package org.mobicents.servlet.sip.core.proxy;
 
+import java.util.List;
+
 import javax.servlet.sip.ProxyBranch;
 
 import org.mobicents.javax.servlet.sip.ProxyBranchExt;
@@ -62,6 +64,6 @@ public interface MobicentsProxyBranch extends ProxyBranch, ProxyBranchExt {
 
 	void proxySubsequentRequest(MobicentsSipServletRequest sipServletRequest);
 
-	void cancel(String[] protocol, int[] reasonCode, String[] reasonText, MobicentsSipServletRequest originalCancelRequest);
+	void cancel(List<String> reasonHeaders, MobicentsSipServletRequest originalCancelRequest);
 
 }

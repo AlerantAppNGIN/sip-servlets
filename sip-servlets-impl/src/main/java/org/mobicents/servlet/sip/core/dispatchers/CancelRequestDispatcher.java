@@ -22,6 +22,8 @@ package org.mobicents.servlet.sip.core.dispatchers;
 import gov.nist.javax.sip.ServerTransactionExt;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.ListIterator;
 
 import javax.servlet.ServletException;
 import javax.servlet.sip.SipSession.State;
@@ -254,14 +256,15 @@ public class CancelRequestDispatcher extends RequestDispatcher {
 							return;
 						}
 					} else {
-						// Forward Reason Header https://code.google.com/p/sipservlets/issues/detail?id=272
-						ReasonHeader reasonHeader = (ReasonHeader) sipServletRequest.getMessage().getHeader(ReasonHeader.NAME);
 						// otherwise, all branches are cancelled, and response processing continues as usual
-						if(reasonHeader != null) {
-							proxy.cancelAllExcept(null, new String[] {reasonHeader.getProtocol()}, new int[] {reasonHeader.getCause()}, new String[] {reasonHeader.getText()}, false, sipServletRequest);
-						} else {
-							proxy.cancelAllExcept(null, null, null, null, false, sipServletRequest);
+
+						// Forward Reason Header https://code.google.com/p/sipservlets/issues/detail?id=272
+						// Forward ALL Reason headers, and UNMODIFIED. No need for parsing them into a ReasonHeader if we're just copying.
+						ArrayList<String> reasonHeaders = new ArrayList<>();
+						for (ListIterator<String> it = sipServletRequest.getHeaders(ReasonHeader.NAME); it.hasNext();) {
+							reasonHeaders.add(it.next());
 						}
+						proxy.cancelAllExcept(null, reasonHeaders, false, sipServletRequest);
 					}
 					// Fix for Issue 796 : SIP servlet (simple proxy) does not receive "Cancel" requests. (http://code.google.com/p/mobicents/issues/detail?id=796)
 					// JSR 289 Section 10.2.6 Receiving CANCEL : In either case, the application is subsequently invoked with the CANCEL request

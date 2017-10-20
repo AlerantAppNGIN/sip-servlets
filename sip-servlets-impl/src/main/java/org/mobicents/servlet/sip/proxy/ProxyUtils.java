@@ -22,13 +22,16 @@
 package org.mobicents.servlet.sip.proxy;
 
 import gov.nist.javax.sip.header.HeaderFactoryExt;
+import gov.nist.javax.sip.header.Reason;
 import gov.nist.javax.sip.header.Via;
 import gov.nist.javax.sip.header.ims.PathHeader;
 import gov.nist.javax.sip.message.MessageExt;
 import gov.nist.javax.sip.message.SIPMessage;
 import gov.nist.javax.sip.stack.SIPTransaction;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import javax.servlet.sip.SipURI;
 import javax.servlet.sip.URI;
@@ -493,4 +496,24 @@ public class ProxyUtils {
 	
 	private static final char[] toHex = { '0', '1', '2', '3', '4', '5', '6',
 		'7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+	public static List<String> generateReasonHeaders(String[] protocol, int[] reasonCode, String[] reasonText) {
+		List<String> ret = new ArrayList<>();
+		if (protocol != null && reasonCode != null && reasonText != null && protocol.length == reasonCode.length
+				&& reasonCode.length == reasonText.length) {
+			for (int i = 0; i < protocol.length; i++) {
+				try {
+					Reason r = new Reason();
+					r.setProtocol(protocol[i]);
+					r.setCause(reasonCode[i]);
+					r.setText(reasonText[i]);
+					ret.add(r.toString());
+				} catch (Exception e) {
+					logger.warn("Failed to construct Reason header from values: proto=" + protocol[i] + ", cause=" + reasonCode[i]
+							+ ", text=" + reasonText[i]);
+				}
+			}
+		}
+		return ret;
+	}
 }

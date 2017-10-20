@@ -193,7 +193,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 * @see javax.servlet.sip.ProxyBranch#cancel()
 	 */
 	public void cancel() {
-		cancel(null, null, null);
+		cancel(null, null);
 	}
 
 	/*
@@ -201,12 +201,11 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 * @see javax.servlet.sip.ProxyBranch#cancel(java.lang.String[], int[], java.lang.String[])
 	 */
 	public void cancel(String[] protocol, int[] reasonCode, String[] reasonText) {
-		cancel(protocol, reasonCode, reasonText, null);
+		cancel(ProxyUtils.generateReasonHeaders(protocol, reasonCode, reasonText), null);
 	}
 
 	@Override
-	public void cancel(String[] protocol, int[] reasonCode, String[] reasonText,
-			MobicentsSipServletRequest originalCancelRequest) {
+	public void cancel(List<String> reasonHeaders, MobicentsSipServletRequest originalCancelRequest) {
 		if(proxy.getAckReceived()) throw new IllegalStateException("There has been an ACK received on this branch. Can not cancel.");
 		
 		try {			
@@ -240,15 +239,9 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 						SipServletRequest cancelRequest = inviteToCancel.createCancel();
 
 						//https://code.google.com/p/sipservlets/issues/detail?id=272 Adding reason headers if needed
-						if(protocol != null && reasonCode != null && reasonText != null
-								&& protocol.length == reasonCode.length && reasonCode.length == reasonText.length) {
-							for (int i = 0; i < protocol.length; i++) {
-								String reasonHeaderValue = protocol[i] + ";cause=" + reasonCode[i];
-								if(reasonText[i] != null && reasonText[i].trim().length() > 0) {
-									reasonHeaderValue = reasonHeaderValue.concat(";text=\"" + reasonText[i] + "\"");
-								}
-								((SipServletRequestImpl)cancelRequest).setHeaderInternal("Reason", reasonHeaderValue, false);
-
+						if (reasonHeaders != null) {
+							for (String reasonHeaderValue : reasonHeaders) {
+								((SipServletRequestImpl) cancelRequest).addHeaderInternal("Reason", reasonHeaderValue, false);
 							}
 						}
 
@@ -694,7 +687,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		cancelTimer();
 		
 		if(status >= 600) // Cancel all 10.2.4
-			this.proxy.cancelAllExcept(this, null, null, null, false);
+			this.proxy.cancelAllExcept(this, null, false, null);
 
 		// Notify the application of branch responses before acting on redirection, e.g. to disable recursion to a disallowed URI
 		// For final responses, ProxyImpl.sendFinalResponse will do the callback

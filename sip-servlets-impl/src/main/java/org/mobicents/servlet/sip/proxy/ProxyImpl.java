@@ -265,7 +265,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	public void cancel() {
 		if(ackReceived) 
 			throw new IllegalStateException("There has been an ACK received. Can not cancel more brnaches, the INVITE tx has finished.");
-		cancelAllExcept(null, null, null, null, true);
+		cancelAllExcept(null, null, true, null);
 	}
 
 	/*
@@ -275,15 +275,11 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	public void cancel(String[] protocol, int[] reasonCode, String[] reasonText) {
 		if(ackReceived) 
 			throw new IllegalStateException("There has been an ACK received. Can not cancel more brnaches, the INVITE tx has finished.");
-		cancelAllExcept(null, protocol, reasonCode, reasonText, true);
-	}
-
-	public void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText, boolean throwExceptionIfCannotCancel) {
-		cancelAllExcept(except, protocol, reasonCode, reasonText, throwExceptionIfCannotCancel, null);
+		cancelAllExcept(null, ProxyUtils.generateReasonHeaders(protocol, reasonCode, reasonText), true, null);
 	}
 
 	@Override
-	public void cancelAllExcept(ProxyBranch except, String[] protocol, int[] reasonCode, String[] reasonText,
+	public void cancelAllExcept(ProxyBranch except, List<String> reasonHeaders,
 			boolean throwExceptionIfCannotCancel, MobicentsSipServletRequest originalCancelRequest) {
 		if(logger.isDebugEnabled()) {
 			if(except == null) {
@@ -297,7 +293,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 				// Do not make this check in the beginning of the method, because in case of reINVITE etc, we already have a single brnch nd this method
 				// would have no actual effect, no need to fail it just because we've already seen ACK. Only throw exception if there are other branches.
 				try {
-					proxyBranch.cancel(protocol, reasonCode, reasonText, originalCancelRequest);
+					proxyBranch.cancel(reasonHeaders, originalCancelRequest);
 				} catch (IllegalStateException e) {				
 					if(throwExceptionIfCannotCancel) {
 						throw e;
@@ -658,7 +654,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 					|| (status >= 600 && status < 700) ) {
 					if(logger.isDebugEnabled())
 						logger.debug("Cancelling all other branches in this proxy");
-					cancelAllExcept(branch, null, null, null, false);
+					cancelAllExcept(branch, null, false, null);
 				}
 			}
 		}
