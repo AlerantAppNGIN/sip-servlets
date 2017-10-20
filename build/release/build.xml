@@ -5,7 +5,7 @@
 	<property name="base.path" location="${ant.file.restcomm.sipservlets.release}/.." />
 	<property name="docs.stage.dir" location="${ant.file.restcomm.sipservlets.release}/../documentation" />
 	
-	<!--property name="mss.release.version" value="3.0.0-tsdp-paas-3" /-->
+	<!--property name="mss.release.version" value="3.0.0-tsdp-paas-4" /-->
 	<property name="mss.release.configurations" value="all,default" />
 	<property name="mss.release.configurations.jboss5" value="all,default" />
 	<property name="mss.release.configurations.jboss5.excluded" value="minimal,standard,web" />
