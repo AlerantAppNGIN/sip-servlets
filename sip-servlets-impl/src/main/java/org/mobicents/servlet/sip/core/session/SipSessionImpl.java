@@ -1620,32 +1620,34 @@ public class SipSessionImpl implements MobicentsSipSession {
 				logger.debug("is dialog terminating method " + JainSipUtils.DIALOG_TERMINATING_METHODS.contains(sipServletMessage.getMethod()));
 			}
 			boolean cleanDialog = false;
-			if (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) { // INVITE based dialog
-				if (DialogState.CONFIRMED.equals(dialogState) || DialogState.TERMINATED.equals(dialogState)) { // not EARLY or NULL_STATE
-					// server dialog, isAckReceived should be used to check that an ACK has arrived
-					if (sessionCreatingDialog.isServer() && isAckReceived(sessionCreatingTransactionCSeq)) {
-						if (logger.isDebugEnabled()) {
-							logger.debug("cleaning INVITE and ACK received for it for confirmed server dialog "	+ sessionCreatingDialog);
+			if(!terminate) { // only check conditions if not terminating, otherwise we'll clean anyway
+				if (Request.INVITE.equalsIgnoreCase(sipServletMessage.getMethod())) { // INVITE based dialog
+					if (DialogState.CONFIRMED.equals(dialogState) || DialogState.TERMINATED.equals(dialogState)) { // not EARLY or NULL_STATE
+						// server dialog, isAckReceived should be used to check that an ACK has arrived
+						if (sessionCreatingDialog.isServer() && isAckReceived(sessionCreatingTransactionCSeq)) {
+							if (logger.isDebugEnabled()) {
+								logger.debug("cleaning INVITE and ACK received for it for confirmed server dialog "	+ sessionCreatingDialog);
+							}
+							cleanDialog = true;
+						} else if (!sessionCreatingDialog.isServer()) { // client dialog, isAckReceived cannot be used
+							if (logger.isDebugEnabled()) {
+								logger.debug("cleaning INVITE and ACK received for it for confirmed client dialog "	+ sessionCreatingDialog);
+							}
+							cleanDialog = true;
+						}
+					}
+					if(!cleanDialog && logger.isDebugEnabled()) {
+						logger.debug("Should not clean dialog creating INVITE transaction for dialog " + sessionCreatingDialog);
+					}
+				} else { // not INVITE based dialog
+					if(JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod())) {
+						if(logger.isDebugEnabled()) {
+							logger.debug("cleaning non INVITE Dialog creating method " + sipServletMessage.getMethod());
 						}
 						cleanDialog = true;
-					} else if (!sessionCreatingDialog.isServer()) { // client dialog, isAckReceived cannot be used
-						if (logger.isDebugEnabled()) {
-							logger.debug("cleaning INVITE and ACK received for it for confirmed client dialog "	+ sessionCreatingDialog);
-						}
-						cleanDialog = true;
-					}
+					} 
+					// Dialog Terminating request will be cleaned up on invalidation
 				}
-				if(!cleanDialog && logger.isDebugEnabled()) {
-					logger.debug("Should not clean dialog creating INVITE transaction for dialog " + sessionCreatingDialog);
-				}
-			} else { // not INVITE based dialog
-				if(JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletMessage.getMethod())) {
-					if(logger.isDebugEnabled()) {
-						logger.debug("cleaning non INVITE Dialog creating method " + sipServletMessage.getMethod());
-					}
-					cleanDialog = true;
-				} 
-				// Dialog Terminating request will be cleaned up on invalidation
 			}
 			if(logger.isDebugEnabled()) {
 				logger.debug("cleanDialog "+ cleanDialog);
@@ -1655,7 +1657,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 			// if we are not an INVITE Based Dialog (but still dialog creating or terminating) or we are INVITE but ACK have been received, we can clean up the app data of its servletmessage to clean memory
 			if(cleanDialog || terminate) {
 				if(logger.isDebugEnabled()) {
-					logger.debug("cleanDialogInformation app data and message"+ sessionCreatingDialog);
+					logger.debug("cleanDialogInformation app data and message "+ sessionCreatingDialog);
 				}
 				dialogAppData.cleanUpMessage();
 				dialogAppData.cleanUp();
