@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.BitSet;
 
 import org.apache.log4j.Logger;
@@ -38,45 +39,187 @@ import org.apache.log4j.Logger;
  */
 public class RFC2396UrlDecoder {
 
-	private static final String UTF_8 = "UTF-8";
-	static final BitSet CHARACHTERS_DONT_NEED_ECNODING;
-	static final int CHARACTER_CASE_DIFF = ('a' - 'A');
 	private final static Logger logger = Logger.getLogger(RFC2396UrlDecoder.class.getCanonicalName());
+
+	private static final String UTF_8 = "UTF-8";
+	private static final int CHARACTER_CASE_DIFF = ('a' - 'A');
 	
-	/** Initialize the BitSet */
+	// RFC 3261 rules:
+	
+	private static final BitSet RFC3261_ALPHA;
 	static {
-		CHARACHTERS_DONT_NEED_ECNODING = new BitSet(256);
+		RFC3261_ALPHA = new BitSet();
 		int i;
 		for (i = 'a'; i <= 'z'; i++) {
-			CHARACHTERS_DONT_NEED_ECNODING.set(i);
+			RFC3261_ALPHA.set(i);
 		}
 		for (i = 'A'; i <= 'Z'; i++) {
-			CHARACHTERS_DONT_NEED_ECNODING.set(i);
+			RFC3261_ALPHA.set(i);
 		}
-		for (i = '0'; i <= '9'; i++) {
-			CHARACHTERS_DONT_NEED_ECNODING.set(i);
+	}
+	
+	private static final BitSet RFC3261_DIGIT;
+	static {
+		RFC3261_DIGIT = new BitSet();
+		for (int i = '0'; i <= '9'; i++) {
+			RFC3261_DIGIT.set(i);
 		}
-		CHARACHTERS_DONT_NEED_ECNODING.set('-');
-		CHARACHTERS_DONT_NEED_ECNODING.set('_');
-		CHARACHTERS_DONT_NEED_ECNODING.set('.');
-		CHARACHTERS_DONT_NEED_ECNODING.set('*');
-		CHARACHTERS_DONT_NEED_ECNODING.set('"');
 	}
 
-	    
-    /**
-     * Translates a string into <code>x-www-form-urlencoded</code> format.
-     *
-     * @param   s   <code>String</code> to be translated.
-     * @return  the translated <code>String</code>.
-     */
-    public static String encode(String s) {
+	private static final BitSet RFC3261_MARK;
+	static {
+		RFC3261_MARK = new BitSet();
+		for (int j : Arrays.asList('-', '_', '.', '!', '~', '*', '\'', '(', ')')) {
+			RFC3261_MARK.set(j);
+		}
+	}
+
+	// unreserved = ALPHA / DIGIT / mark
+	private static final BitSet RFC3261_UNRESERVED;
+	static {
+		RFC3261_UNRESERVED = new BitSet();
+		RFC3261_UNRESERVED.or(RFC3261_ALPHA);
+		RFC3261_UNRESERVED.or(RFC3261_DIGIT);
+		RFC3261_UNRESERVED.or(RFC3261_MARK);
+	}
+	
+	// hnv-unreserved  =  "[" / "]" / "/" / "?" / ":" / "+" / "$"
+	private static final BitSet RFC3261_HNV_UNRESERVED;
+	static {
+		RFC3261_HNV_UNRESERVED = new BitSet();
+		for (int j : Arrays.asList('[', ']', '/', '?', ':', '+', '$')) {
+			RFC3261_HNV_UNRESERVED.set(j);
+		}
+	}
+	
+	// headers         =  "?" header *( "&" header )
+	// header          =  hname "=" hvalue
+	// hname           =  1*( hnv-unreserved / unreserved / escaped )
+	// hvalue          =  *( hnv-unreserved / unreserved / escaped )
+	private static final BitSet RFC3261_HNAME_HVALUE;
+	static {
+		RFC3261_HNAME_HVALUE = new BitSet();
+		RFC3261_HNAME_HVALUE.or(RFC3261_HNV_UNRESERVED);
+		RFC3261_HNAME_HVALUE.or(RFC3261_UNRESERVED);
+	}
+	
+	// param-unreserved  =  "[" / "]" / "/" / ":" / "&" / "+" / "$"
+	private static final BitSet RFC3261_PARAM_UNRESERVED;
+	static {
+		RFC3261_PARAM_UNRESERVED = new BitSet(); 
+		for (int j : Arrays.asList('[', ']', '/', ':', '&', '+', '$')) {
+			RFC3261_PARAM_UNRESERVED.set(j);
+		}
+	}
+	
+	// paramchar         =  param-unreserved / unreserved / escaped
+	private static final BitSet RFC3261_PARAMCHAR;
+	static {
+		RFC3261_PARAMCHAR = new BitSet();
+		RFC3261_PARAMCHAR.or(RFC3261_PARAM_UNRESERVED);
+		RFC3261_PARAMCHAR.or(RFC3261_UNRESERVED);
+	}
+	
+	// other-param       =  pname [ "=" pvalue ]
+	// pname			 =	1*paramchar
+	// pvalue			 =	1*paramchar
+	// Note: separated only for consistency in naming, in case paramchar is referenced from another definition later
+	private static final BitSet RFC3261_PNAME_PVALUE = RFC3261_PARAMCHAR;
+	
+
+//   RFC3966 (tel URI) parameter rules:
+//			   parameter            = ";" pname ["=" pvalue ]
+//			   pname                = 1*( alphanum / "-" )
+//			   pvalue               = 1*paramchar
+//			   paramchar            = param-unreserved / unreserved / pct-encoded
+//			   unreserved           = alphanum / mark
+//			   mark                 = "-" / "_" / "." / "!" / "~" / "*" /
+//			                          "'" / "(" / ")"
+//			   pct-encoded          = "%" HEXDIG HEXDIG
+//			   param-unreserved     = "[" / "]" / "/" / ":" / "&" / "+" / "$"
+//   notes:
+//       Same as RFC3261: paramchar, param-unreserved, mark, unreserved, pvalue
+//	     Different: pname is more restrictive!
+
+	
+	private static final BitSet RFC3966_PNAME;
+	static {
+		RFC3966_PNAME = new BitSet();
+		RFC3966_PNAME.or(RFC3261_ALPHA);
+		RFC3966_PNAME.or(RFC3261_DIGIT);
+		RFC3966_PNAME.set('-');
+	}
+
+	private static final BitSet RFC3966_PVALUE = RFC3261_PARAMCHAR;
+	
+	/** Default RFC-2396 safe character set. */
+	static final BitSet DEFAULT_RFC2396;
+	/** Initialize the BitSet */
+	static {
+		DEFAULT_RFC2396 = new BitSet(256);
+		DEFAULT_RFC2396.or(RFC3261_ALPHA);
+		DEFAULT_RFC2396.or(RFC3261_DIGIT);
+		DEFAULT_RFC2396.set('-');
+		DEFAULT_RFC2396.set('_');
+		DEFAULT_RFC2396.set('.');
+		DEFAULT_RFC2396.set('*');
+		DEFAULT_RFC2396.set('"');
+	}
+	
+	
+	/** Encoding rules corresponding to RFC definitions. */
+	public static enum EncodingRule {
+		/** Default RFC-2396 encoding rule. */
+		DEFAULT_RFC2396(RFC2396UrlDecoder.DEFAULT_RFC2396),
+		
+		/** Encoding rule used for <code>hname</code> and <code>hvalue</code>, as defined by RFC3261.*/
+		RFC3261_HNAME_HVALUE(RFC2396UrlDecoder.RFC3261_HNAME_HVALUE),
+		
+		/** Encoding rule used for <code>pname</code> and <code>pvalue</code>, as defined by RFC3261.*/
+		RFC3261_PNAME_PVALUE(RFC2396UrlDecoder.RFC3261_PNAME_PVALUE),
+		
+		/** Encoding rule used for tel URI <code>pname</code>, as defined by RFC3966.*/
+		RFC3966_PNAME(RFC2396UrlDecoder.RFC3966_PNAME),
+		
+		/** Encoding rule used for tel URI <code>pvalue</code>, as defined by RFC3966.*/
+		RFC3966_PVALUE(RFC2396UrlDecoder.RFC3966_PVALUE),
+		;
+
+		private final BitSet safeValues;
+
+		EncodingRule(BitSet safeValues) {
+			this.safeValues = safeValues;
+		}
+	}
+	
+	
+	/**
+	 * Translates a string into <code>x-www-form-urlencoded</code> format.
+	 * Equivalent to calling {@link #encode(String, EncodingRule)} with {@link EncodingRule#DEFAULT_RFC2396}.
+	 *
+	 * @param   s   <code>String</code> to be translated.
+	 * @return  the translated <code>String</code>.
+	 * @deprecated Use {@link #encode(String, EncodingRule)} instead with an explicit rule specified.
+	 */
+	@Deprecated
+	public static String encode(String s) {
+		return encode(s, EncodingRule.DEFAULT_RFC2396);
+	}
+	
+	/**
+	 * Translates a string into percent-encoded format, based on the safe character set specified by the
+	 * provided encoding rule (all other characters are considered unsafe and are percent-encoded).
+	 * @param s The string to encode
+	 * @param rule The {@link EncodingRule} to use.
+	 * @return the percent-encoded string.
+	 */
+   	public static String encode(String s, EncodingRule rule) {
 		final StringBuffer out = new StringBuffer(s.length());
 		final ByteArrayOutputStream buf = new ByteArrayOutputStream(32);
 		final OutputStreamWriter writer = new OutputStreamWriter(buf);
 		for (int i = 0; i < s.length(); i++) {
 			int c = s.charAt(i);
-			if (CHARACHTERS_DONT_NEED_ECNODING.get(c)) {
+			if (rule.safeValues.get(c)) {
 				out.append((char) c);
 			} else {
 				try {
@@ -106,7 +249,11 @@ public class RFC2396UrlDecoder {
 			}
 		}
 
-		return out.toString();
+		String ret = out.toString();
+		if (logger.isTraceEnabled()) {
+			logger.trace("Encoding rule " + rule + " turned ˛" + s + "¸ into ˛" + ret + "¸");
+		}
+		return ret;
 	}
 
 	
