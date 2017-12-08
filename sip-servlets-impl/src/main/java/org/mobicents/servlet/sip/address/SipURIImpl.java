@@ -34,6 +34,7 @@ import javax.sip.header.Parameters;
 
 import org.apache.log4j.Logger;
 import org.mobicents.servlet.sip.address.AddressImpl.ModifiableRule;
+import org.mobicents.servlet.sip.address.RFC2396UrlDecoder.EncodingRule;
 import org.mobicents.servlet.sip.message.SipFactoryImpl;
 
 /**
@@ -73,7 +74,10 @@ public class SipURIImpl extends URIImpl implements SipURI {
 			throw new NullPointerException("header name is null");
 		}
 		try {
-			return RFC2396UrlDecoder.decode(((javax.sip.address.SipURI) super.uri).getHeader(name));
+			// query the underlying URI with the encoded name, as it was set in setHeader.
+			// then decode the result for the caller
+			String encName = RFC2396UrlDecoder.encode(name, EncodingRule.RFC3261_HNAME_HVALUE);
+			return RFC2396UrlDecoder.decode(((javax.sip.address.SipURI) super.uri).getHeader(encName));
 		} catch (NullPointerException e) {
 			return null;
 		}
@@ -85,7 +89,21 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 */
 	@SuppressWarnings("unchecked")
 	public Iterator<String> getHeaderNames() {
-		return getSipURI().getHeaderNames();
+		// report decoded names to the caller
+		return new Iterator<String>() {
+			Iterator<String> encodedNames = getSipURI().getHeaderNames();
+
+			@Override
+			public boolean hasNext() {
+				return encodedNames.hasNext();
+			}
+
+			@Override
+			public String next() {
+				return RFC2396UrlDecoder.decode(encodedNames.next());
+			}
+			
+		};
 	}
 
 	/*
@@ -166,8 +184,11 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setHeader(java.lang.String, java.lang.String)
 	 */
 	public void setHeader(String name, String value) {
+		// encode name and value according to RFC requirements for the underlying URI
+		String encName = RFC2396UrlDecoder.encode(name, EncodingRule.RFC3261_HNAME_HVALUE);
+		String encValue = RFC2396UrlDecoder.encode(value, EncodingRule.RFC3261_HNAME_HVALUE);
 		try {
-			getSipURI().setHeader(name, value);
+			getSipURI().setHeader(encName, encValue);
 		} catch (ParseException ex) {
 			logger.error("parse exception occured", ex);
 			throw new IllegalArgumentException("Bad arg!",ex);
@@ -414,11 +435,14 @@ public class SipURIImpl extends URIImpl implements SipURI {
 			// Done to pass UriServlet.testSetParameter101 TCK test waiting for an NPE
 			throw new NullPointerException("Value is not allowed to be NULL as per method contract");
 		}
+		
 		if(value != null && value.trim().length() >= 1) {
+			// TODO: should be using RFC3261 pvalue rule 
 			escapedValue = RFC2396UrlDecoder.encode(value);
 		}
 		super.setParameter(name, value);
 		try {
+			// TODO name should be escaped as well according to RFC3261 pname rule
 			((Parameters)getSipURI()).setParameter(name, escapedValue);
 		} catch (ParseException e) {
 			throw new IllegalArgumentException("Problem setting parameter",e);

@@ -22,13 +22,14 @@
 
 package org.mobicents.servlet.sip.testsuite.address;
 
+import java.util.Locale;
+
 import javax.servlet.sip.ServletParseException;
 import javax.servlet.sip.SipURI;
 import javax.servlet.sip.URI;
 import org.junit.Assert;
 
 import org.mobicents.servlet.sip.message.SipFactoryImpl;
-import org.mobicents.servlet.sip.startup.StaticServiceHolder;
 
 /**
  * Tests from RFC3261 §19.1.4 URI Comparison
@@ -67,6 +68,14 @@ public class SipURITest extends junit.framework.TestCase {
 		return (SipURI) sipFactory.createURI(uri);
 	}
 	
+	private SipURI safeSipUri(String uri) {
+		try {
+			return (SipURI) sipFactory.createURI(uri);
+		} catch (Exception e) {
+			throw new AssertionError("Failed to create safe SIP URI " + uri, e);
+		}
+	}
+	
 	public void testEqual() throws Exception {
 		for (int i = 0; i < equal.length; i++) {
 			SipURI uri1 = sipUri(equal[i][0]);
@@ -85,6 +94,7 @@ public class SipURITest extends junit.framework.TestCase {
 		}
 	}
 	
+	// TODO: more exhaustive parameter escaping test with special characters
 	public void testEscaping() throws Exception {
 		SipURI uri1 = sipUri("sip:alice@atlanta.com;transport=TCP?Subject=SIP%20Servlets");
 		assertTrue(uri1.getUser() + " is different as alice" , uri1.getUser().equals("alice"));
@@ -96,7 +106,60 @@ public class SipURITest extends junit.framework.TestCase {
 //		SipURI uri2 = sipUri("sip:annc@ms.example.net;play=file://fs.example.net//clips/my-intro.dvi;content-type=video/mpeg;encode=314M-25/625-50");		
 //		assertTrue(uri1.getParameter("content-type") + " is different as video/mpeg;encode=314M-25/625-50" , uri1.getParameter("content-type").equals("video/mpeg;encode=314M-25/625-50"));
 //		assertTrue(uri1.toString() + " is different as sip:annc@ms.example.net;play=file://fs.example.net//clips/my-intro.dvi;content-type=video/mpeg%3bencode%3d314M-25/625-50" , uri1.equals(uri2));
-	}	
+	}
+	
+	
+	// SipURI header tests: 
+	
+	// headers         =  "?" header *( "&" header )
+	// header          =  hname "=" hvalue
+	// hname           =  1*( hnv-unreserved / unreserved / escaped )
+	// hvalue          =  *( hnv-unreserved / unreserved / escaped )
+	// hnv-unreserved  =  "[" / "]" / "/" / "?" / ":" / "+" / "$"
+	// unreserved = ALPHA / DIGIT / mark
+	// mark                 = "-" / "_" / "." / "!" / "~" / "*" / "'" / "(" / ")"
+
+	public void testHeaderNullValue() {
+		SipURI uri = safeSipUri("sip:alice@atlanta.com");
+		try {
+			uri.setHeader("X-Header", null);
+			Assert.fail("NPE expected on SipURI.setHeader(name, null)");
+		} catch (NullPointerException e) {
+			// we are expecting NPE
+		}
+	}
+       
+	public void testHeaderEmptyValue() {
+		// special case of sip:a@b?Header=&Other=
+		SipURI uri = safeSipUri("sip:a@b");
+		uri.setHeader("One", "");
+		uri.setHeader("Two", "");
+		String encodedURI = uri.toString();
+		Assert.assertEquals("sip:a@b?one=&two=", encodedURI.toLowerCase(Locale.US));
+	}
+	
+	
+	public void testHeaderEscapingNameAndValue() throws Exception {
+		SipURI uri = sipUri("sip:alice@atlanta.com");
+		String allAllowedSpecChars = "[]/?:+$-_.!~*'()";
+		String someNotAllowedChars = " \" \\ ^&<>|#@{}";
+		String name = allAllowedSpecChars + "n4me" + someNotAllowedChars;
+		String value = allAllowedSpecChars + "v4lue" + someNotAllowedChars;
+		uri.setHeader(name, value);
+		// test that iterator returns decoded name
+		assertEquals(name, uri.getHeaderNames().next());
+		// test that get succeeds with decoded name and return decoded value
+		assertEquals(value, uri.getHeader(name));
+		// test that encoded URI contains encoded name and value:
+		String encodedNotAllowedChars = "%20%22%20%5C%20%5E%26%3C%3E%7C%23%40%7B%7D";
+		String encodedName = allAllowedSpecChars + "n4me" + encodedNotAllowedChars;
+		String encodedValue = allAllowedSpecChars + "v4lue" + encodedNotAllowedChars;
+		String encodedUri = uri.toString();
+		assertEquals("sip:alice@atlanta.com?" + encodedName + '=' + encodedValue, encodedUri);
+	}
+
+
+	
 	
 	public void testNullUser() throws Exception {
 		SipURI uri1 = sipUri("sip:atlanta.com;transport=TCP?Subject=SIP%20Servlets");
