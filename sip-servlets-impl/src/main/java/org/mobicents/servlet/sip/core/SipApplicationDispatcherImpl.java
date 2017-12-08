@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +52,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import javax.imageio.spi.ServiceRegistry;
 import javax.management.MBeanRegistration;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
@@ -336,9 +336,8 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 			if(logger.isInfoEnabled()) {
 				logger.info("Using the Service Provider Framework to load the application router provider");
 			}
-			//TODO when moving to JDK 6, use the official http://java.sun.com/javase/6/docs/api/java/util/ServiceLoader.html instead			
-			//http://grep.codeconsult.ch/2007/10/31/the-java-service-provider-spec-and-sunmiscservice/
-			Iterator<SipApplicationRouterProvider> providers = ServiceRegistry.lookupProviders(SipApplicationRouterProvider.class);
+
+			Iterator<SipApplicationRouterProvider> providers = ServiceLoader.load(SipApplicationRouterProvider.class).iterator();
 			if(providers.hasNext()) {
 				sipApplicationRouter = providers.next().getSipApplicationRouter();
 			}
