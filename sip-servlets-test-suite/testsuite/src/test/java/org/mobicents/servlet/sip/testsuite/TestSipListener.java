@@ -1440,9 +1440,25 @@ public class TestSipListener implements SipListener {
 					response.addHeader(recordRouteHeader);
 				}
 				if(!sendReliably || forceFinalResponseBeforePrack) {
-					Thread.sleep(waitBeforeFinalResponse);
-					logger.debug("sending back response " + response);
-					st.sendResponse(response);
+					final ServerTransaction stFor200OK = st;
+					final Response finalResponse = response;
+					Runnable finalResponseSender =	new Runnable() {
+						public void run() {
+							try {
+								if (waitBeforeFinalResponse > 0) {
+									Thread.sleep(waitBeforeFinalResponse);
+								}
+								logger.debug("sending back response " + finalResponse);
+								stFor200OK.sendResponse(finalResponse);
+							} catch (Exception e) {
+							}
+						};
+					};
+					if(forceFinalResponseBeforePrack) {
+						new Thread(finalResponseSender).start();
+					} else {
+						finalResponseSender.run(); // in-thread
+					}
 				}
 				
 				if(sendUpdateAfterPrack){
@@ -1967,12 +1983,27 @@ public class TestSipListener implements SipListener {
 				if(requireHeader != null && "100rel".equalsIgnoreCase(requireHeader.getOptionTag().trim()) && !prackSent) {
 					prackSent = true;
 					Request prack = responseDialog.createPrack(response);
-					ClientTransaction ct = sipProvider
+					final ClientTransaction ct = sipProvider
 						.getNewClientTransaction(prack);
-					if (getDelayBeforePrack() > 0) {
-						Thread.sleep(getDelayBeforePrack());
+					final Dialog prackDialog = responseDialog;
+					final long delay = getDelayBeforePrack();
+					Runnable prackSender = new Runnable() {
+						public void run() {
+							try {
+								if (delay > 0)
+									Thread.sleep(delay);
+								prackDialog.sendRequest(ct);
+								prackSent = true;
+							} catch (Exception e) {
+								throw new RuntimeException(e);
+							}
+						};
+					};
+					if (delay > 0) {
+						new Thread(prackSender).start();
+					} else {
+						prackSender.run();
 					}
-					responseDialog.sendRequest(ct);					
 				}
 			}
 			/**

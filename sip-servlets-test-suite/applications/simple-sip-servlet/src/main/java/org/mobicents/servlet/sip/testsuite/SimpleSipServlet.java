@@ -461,6 +461,9 @@ public class SimpleSipServlet
 			sipServletResponse.sendReliably();
 			sipServletResponse = request.createResponse(SipServletResponse.SC_OK);
 			sipServletResponse.getSession().setAttribute("okResponse", sipServletResponse);
+			if(fromString.contains("sendAnswerBeforePrack")) {
+				timerService.createTimer(sipServletResponse.getApplicationSession(), 10, false, (Serializable) sipServletResponse);
+			}
 			
 			return;
 		}		
@@ -588,7 +591,9 @@ public class SimpleSipServlet
 			IOException {
 		req.createResponse(SipServletResponse.SC_OK).send();		
 		SipServletResponse okResponseToInvite = (SipServletResponse) req.getSession().getAttribute("okResponse");
-		okResponseToInvite.send();
+		if (!okResponseToInvite.isCommitted()) {
+			okResponseToInvite.send();
+		}
 	}
 	
 	@Override

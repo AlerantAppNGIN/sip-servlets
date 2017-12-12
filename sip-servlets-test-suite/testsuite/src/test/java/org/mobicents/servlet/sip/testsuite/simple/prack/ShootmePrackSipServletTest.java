@@ -115,7 +115,57 @@ public class ShootmePrackSipServletTest extends SipServletTestCase {
 		assertTrue(sender.isAckSent());
 		assertTrue(sender.getOkToByeReceived());		
 	}
-	
+
+	public void testShootmePracksendAnswerBeforePrack_AckBeforePrack()
+			throws InterruptedException, SipException, ParseException, InvalidArgumentException {
+		String fromName = "prack-sendAnswerBeforePrack";
+		String fromSipAddress = "sip-servlets.com";
+		SipURI fromAddress = senderProtocolObjects.addressFactory.createSipURI(fromName, fromSipAddress);
+
+		String toUser = "receiver";
+		String toSipAddress = "sip-servlets.com";
+		SipURI toAddress = senderProtocolObjects.addressFactory.createSipURI(toUser, toSipAddress);
+
+		String[] headerNames = new String[] { "require" };
+		String[] headerValues = new String[] { "100rel" };
+
+		// allow 200:INV to arrive, then send ACK, then PRACK
+		sender.setTimeToWaitBeforeAck(0);
+		sender.setDelayBeforePrack(200);
+
+		sender.sendSipRequest("INVITE", fromAddress, toAddress, null, null, false, headerNames, headerValues, true);
+		Thread.sleep(5000);
+		assertTrue(sender.isPrackSent());
+		assertTrue(sender.isOkToPrackReceived());
+		assertTrue(sender.isAckSent());
+		assertTrue(sender.getOkToByeReceived());
+	}
+
+	public void testShootmePracksendAnswerBeforePrack_PrackBeforeAck()
+			throws InterruptedException, SipException, ParseException, InvalidArgumentException {
+		String fromName = "prack-sendAnswerBeforePrack";
+		String fromSipAddress = "sip-servlets.com";
+		SipURI fromAddress = senderProtocolObjects.addressFactory.createSipURI(fromName, fromSipAddress);
+
+		String toUser = "receiver";
+		String toSipAddress = "sip-servlets.com";
+		SipURI toAddress = senderProtocolObjects.addressFactory.createSipURI(toUser, toSipAddress);
+
+		String[] headerNames = new String[] { "require" };
+		String[] headerValues = new String[] { "100rel" };
+
+		// allow 200:INV to arrive, then send PRACK, then ACK
+		sender.setTimeToWaitBeforeAck(200);
+		sender.setDelayBeforePrack(100);
+
+		sender.sendSipRequest("INVITE", fromAddress, toAddress, null, null, false, headerNames, headerValues, true);
+		Thread.sleep(5000);
+		assertTrue(sender.isPrackSent());
+		assertTrue(sender.isOkToPrackReceived());
+		assertTrue(sender.isAckSent());
+		assertTrue(sender.getOkToByeReceived());
+	}
+
 	public void testShootmePrackAckReceivedTwice() throws InterruptedException, SipException, ParseException, InvalidArgumentException {
 		String fromName = "prack-test2xACK";
 		String fromSipAddress = "sip-servlets.com";
