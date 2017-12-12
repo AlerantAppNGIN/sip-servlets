@@ -362,7 +362,11 @@ public class TestSipListener implements SipListener {
 	private boolean sendProvisionalResponseBeforeChallenge = false;
 
 	private boolean checkSDPNullOnChallengeRequests;
-	
+
+	private boolean forceFinalResponseBeforePrack;
+
+	private long delayBeforePrack = 0;
+
 	class MyEventSource implements Runnable {
 		private TestSipListener notifier;
 		private EventHeader eventHeader;
@@ -1435,7 +1439,7 @@ public class TestSipListener implements SipListener {
 					RecordRouteHeader recordRouteHeader = protocolObjects.headerFactory.createRecordRouteHeader(address);
 					response.addHeader(recordRouteHeader);
 				}
-				if(!sendReliably) {					
+				if(!sendReliably || forceFinalResponseBeforePrack) {
 					Thread.sleep(waitBeforeFinalResponse);
 					logger.debug("sending back response " + response);
 					st.sendResponse(response);
@@ -1965,6 +1969,9 @@ public class TestSipListener implements SipListener {
 					Request prack = responseDialog.createPrack(response);
 					ClientTransaction ct = sipProvider
 						.getNewClientTransaction(prack);
+					if (getDelayBeforePrack() > 0) {
+						Thread.sleep(getDelayBeforePrack());
+					}
 					responseDialog.sendRequest(ct);					
 				}
 			}
@@ -3544,5 +3551,21 @@ public class TestSipListener implements SipListener {
 
 	public void setCheckSDPNullOnChallengeRequests(boolean checkSDPNullOnChallengeRequests) {
 		this.checkSDPNullOnChallengeRequests = checkSDPNullOnChallengeRequests;
+	}
+
+	public boolean isForceFinalResponseBeforePrack() {
+		return forceFinalResponseBeforePrack;
+	}
+
+	public void setForceFinalResponseBeforePrack(boolean forceFinalResponseBeforePrack) {
+		this.forceFinalResponseBeforePrack = forceFinalResponseBeforePrack;
+	}
+
+	public void setDelayBeforePrack(long delayBeforePrack) {
+		this.delayBeforePrack = delayBeforePrack;
+	}
+
+	public long getDelayBeforePrack() {
+		return delayBeforePrack;
 	}
 }
