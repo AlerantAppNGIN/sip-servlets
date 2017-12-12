@@ -947,7 +947,9 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		final MobicentsSipApplicationSession sipAppSession = sipSession.getSipApplicationSession();
 		// Update the last proxied request
 		request.setRoutingState(RoutingState.PROXIED);
-		this.prackOriginalRequest = request;
+		if(request.getMethod().equals(Request.PRACK)) {
+			setPrackOriginalRequest(request);
+		}
 				
 		URI targetURI = null; 
 		String targetURIString = null; 
