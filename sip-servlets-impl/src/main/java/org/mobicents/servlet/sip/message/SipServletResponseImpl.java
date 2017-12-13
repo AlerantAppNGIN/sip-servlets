@@ -43,6 +43,7 @@ import javax.servlet.sip.SipServletRequest;
 import javax.servlet.sip.SipServletResponse;
 import javax.sip.ClientTransaction;
 import javax.sip.Dialog;
+import javax.sip.DialogDoesNotExistException;
 import javax.sip.InvalidArgumentException;
 import javax.sip.ServerTransaction;
 import javax.sip.SipException;
@@ -256,60 +257,73 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 
 	public SipServletRequest createPrack() throws Rel100Exception {
 		final Response response = getResponse();
-		if((response.getStatusCode() == 100 && response.getStatusCode() >= 200) || isPrackGenerated) {
-			throw new IllegalStateException("the transaction state is such that it doesn't allow a PRACK to be sent now, or this response is provisional only, or a PRACK has already been generated");
-		}
-		if(!Request.INVITE.equals(getTransaction().getRequest().getMethod())) {
+		if(isPrackGenerated) {
+			throw new IllegalStateException("A PRACK has already been generated for this response");
+		} else if(!Request.INVITE.equals(getMethod())) {
 			throw new Rel100Exception(Rel100Exception.NOT_INVITE);
-		}		
+		} else if (getHeader("RSeq") == null) {
+			throw new Rel100Exception(Rel100Exception.NOT_100rel);
+		} else if (getStatus() == 100 || getStatus() >= 200) {
+			throw new Rel100Exception(Rel100Exception.NOT_1XX);
+		}
 		final MobicentsSipSession session = getSipSession();
 		Dialog dialog = session.getSessionCreatingDialog();
 		SipServletRequestImpl sipServletPrackRequest = null; 
+	
+		if(logger.isDebugEnabled()) {
+			logger.debug("dialog to create the prack Request " + dialog);
+		}
+		Request prackRequest = null;
 		try {
-			if(logger.isDebugEnabled()) {
-				logger.debug("dialog to create the prack Request " + dialog);
+			prackRequest = dialog.createPrack(response);
+		} catch(DialogDoesNotExistException e) {
+			// A dialog state change has occurred in the stack that was not yet processed on
+			// the servlets level, e.g. a final error response arrived and terminated the
+			// dialog. Instead of checking dialog state in advance, we allow it to fail and catch the exception.
+			throw new IllegalStateException("the transaction state is such that it doesn't allow a PRACK to be sent now", e);
+		} catch(SipException e) {
+			// these should never occur, as jain-sip actually only throws SipException if
+			// the response has no RSeq header, which should have been handled above
+			logger.error("Unexpected exception thrown by dialog.createPrack", e);
+			throw new IllegalStateException("Unexpected exception thrown by dialog.createPrack", e);
+		}
+		if(logger.isInfoEnabled()) {
+			logger.info("prackRequest just created " + prackRequest);
+		}
+		// Fix for Issue 1808 : The Via header of PRACK request that sent by Mobicents contains "0.0.0.0".
+		// we remove the via header that was given by the dialog and let MSS set it later on
+		prackRequest.removeHeader(ViaHeader.NAME);
+		// cater to http://code.google.com/p/sipservlets/issues/detail?id=31 to be able to set the rport in applications
+		final SipApplicationDispatcher sipApplicationDispatcher = sipFactoryImpl.getSipApplicationDispatcher();
+		final String branch = JainSipUtils.createBranch(session.getSipApplicationSession().getKey().getId(),  sipApplicationDispatcher.getHashFromApplicationName(session.getSipApplicationSession().getKey().getApplicationName()));
+		ViaHeader viaHeader = JainSipUtils.createViaHeader(
+				sipFactoryImpl.getSipNetworkInterfaceManager(), prackRequest, branch, session.getOutboundInterface());
+		prackRequest.addHeader(viaHeader);
+		
+		//Application Routing to avoid going through the same app that created the ack
+		ListIterator<RouteHeader> routeHeaders = prackRequest.getHeaders(RouteHeader.NAME);
+		prackRequest.removeHeader(RouteHeader.NAME);
+		while (routeHeaders.hasNext()) {
+			RouteHeader routeHeader = routeHeaders.next();
+			String serverId = ((SipURI)routeHeader .getAddress().getURI()).
+					getParameter(MessageDispatcher.RR_PARAM_SERVER_NAME);
+			String routeAppNameHashed = ((SipURI)routeHeader .getAddress().getURI()).
+				getParameter(MessageDispatcher.RR_PARAM_APPLICATION_NAME);
+			String routeAppName = null;
+			if(routeAppNameHashed != null) {
+				routeAppName = sipFactoryImpl.getSipApplicationDispatcher().getApplicationNameFromHash(routeAppNameHashed);
 			}
-			Request prackRequest = dialog.createPrack(response);			
-			if(logger.isInfoEnabled()) {
-				logger.info("prackRequest just created " + prackRequest);
+			if(routeAppName == null || !sipFactoryImpl.getSipApplicationDispatcher().getApplicationServerId().equalsIgnoreCase(serverId) || !routeAppName.equals(getSipSession().getKey().getApplicationName())) {
+				prackRequest.addHeader(routeHeader);
 			}
-			// Fix for Issue 1808 : The Via header of PRACK request that sent by Mobicents contains "0.0.0.0".
-			// we remove the via header that was given by the dialog and let MSS set it later on
-			prackRequest.removeHeader(ViaHeader.NAME);
-			// cater to http://code.google.com/p/sipservlets/issues/detail?id=31 to be able to set the rport in applications
-			final SipApplicationDispatcher sipApplicationDispatcher = sipFactoryImpl.getSipApplicationDispatcher();
-			final String branch = JainSipUtils.createBranch(session.getSipApplicationSession().getKey().getId(),  sipApplicationDispatcher.getHashFromApplicationName(session.getSipApplicationSession().getKey().getApplicationName()));
-			ViaHeader viaHeader = JainSipUtils.createViaHeader(
-    				sipFactoryImpl.getSipNetworkInterfaceManager(), prackRequest, branch, session.getOutboundInterface());
-			prackRequest.addHeader(viaHeader);
-			
-			//Application Routing to avoid going through the same app that created the ack
-			ListIterator<RouteHeader> routeHeaders = prackRequest.getHeaders(RouteHeader.NAME);
-			prackRequest.removeHeader(RouteHeader.NAME);
-			while (routeHeaders.hasNext()) {
-				RouteHeader routeHeader = routeHeaders.next();
-				String serverId = ((SipURI)routeHeader .getAddress().getURI()).
-						getParameter(MessageDispatcher.RR_PARAM_SERVER_NAME);
-				String routeAppNameHashed = ((SipURI)routeHeader .getAddress().getURI()).
-					getParameter(MessageDispatcher.RR_PARAM_APPLICATION_NAME);
-				String routeAppName = null;
-				if(routeAppNameHashed != null) {
-					routeAppName = sipFactoryImpl.getSipApplicationDispatcher().getApplicationNameFromHash(routeAppNameHashed);
-				}
-				if(routeAppName == null || !sipFactoryImpl.getSipApplicationDispatcher().getApplicationServerId().equalsIgnoreCase(serverId) || !routeAppName.equals(getSipSession().getKey().getApplicationName())) {
-					prackRequest.addHeader(routeHeader);
-				}
-			}
-			sipServletPrackRequest = (SipServletRequestImpl) sipFactoryImpl.getMobicentsSipServletMessageFactory().createSipServletRequest(
-					prackRequest,
-					this.getSipSession(), 
-					this.getTransaction(), 
-					dialog, 
-					false); 
-			isPrackGenerated = true;
-		} catch (SipException e) {
-			logger.error("Impossible to create the PRACK",e);
-		}		
+		}
+		sipServletPrackRequest = (SipServletRequestImpl) sipFactoryImpl.getMobicentsSipServletMessageFactory().createSipServletRequest(
+				prackRequest,
+				this.getSipSession(), 
+				this.getTransaction(), 
+				dialog, 
+				false); 
+		isPrackGenerated = true;
 		return sipServletPrackRequest;
 	}
 
