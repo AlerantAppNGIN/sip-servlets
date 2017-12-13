@@ -53,13 +53,14 @@ public class ProxyRecordRoutePrackTest extends SipServletTestCase {
 		receiver.setTimeToWaitBetweenProvisionnalResponse(1000);
 
 		receiver.setWaitForCancel(false);
-		receiver.setWaitBeforeFinalResponse(750);
+		receiver.setWaitBeforeFinalResponse(650);
 		receiver.setForceFinalResponseBeforePrack(true);
 		receiver.setSendUpdateAfterUpdate(false);
 
 		sender.setSendUpdateAfterPrack(false);
 		sender.setSendUpdateAfterProvisionalResponses(false);
 		sender.setSendUpdateOn180(false);
+		sender.setDelayBeforePrack(50);
 		sender.setTimeToWaitBeforeBye(2000);
 
 		String[] headerNames = new String[] { "require" };
@@ -69,7 +70,7 @@ public class ProxyRecordRoutePrackTest extends SipServletTestCase {
 
 		sender.sendSipRequest("INVITE", fromAddress, toAddress, null, null, false, headerNames, headerValues, true);
 
-		Thread.sleep(1400);
+		Thread.sleep(1300);
 		// first 183-prack-ok
 		checkAndResetOnePrack();
 
