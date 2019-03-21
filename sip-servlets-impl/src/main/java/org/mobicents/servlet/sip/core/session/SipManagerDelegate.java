@@ -22,12 +22,13 @@
 
 package org.mobicents.servlet.sip.core.session;
 
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
@@ -58,6 +59,7 @@ public abstract class SipManagerDelegate {
 	//if it's never cleaned up a memory leak will occur
 	//Shall we have a thread scanning for invalid sessions and removing them accordingly ?
 	//=> after a chat with ranga the better way to go for now is removing on processDialogTerminated
+	// UPDATE: for whatever reason, some sessions still leak, so run a periodic check and throw them out to be sure
 	protected ConcurrentHashMap<SipSessionKey, MobicentsSipSession> sipSessions = 
 		new ConcurrentHashMap<SipSessionKey, MobicentsSipSession>();
 
@@ -133,6 +135,27 @@ public abstract class SipManagerDelegate {
     private int lastUpdatedSsCreationCounter = 0;
     private long lastSipSessionUpdatedTime = 0;
     private double lastAverageSsCreationPerSecond = 0.0;
+    
+    // check for leaked sessions and applicationsessions every cleanupPeriodSec seconds (10m by default).
+   {    	
+		int cleanupPeriodSec = Integer
+				.getInteger("org.mobicents.servlet.sip.core.session.SipManagerDelegate.cleanupPeriodSec", 600);
+		int cleanupMaxAllowedAgeSec = Integer
+				.getInteger("org.mobicents.servlet.sip.core.session.SipManagerDelegate.cleanupMaxAllowedAgeSec", 86400);
+		logger.info("Param org.mobicents.servlet.sip.core.session.SipManagerDelegate.cleanupPeriodSec=" + cleanupPeriodSec);
+		logger.info("Param org.mobicents.servlet.sip.core.session.SipManagerDelegate.cleanupMaxAllowedAgeSec=" + cleanupMaxAllowedAgeSec);
+		new Timer("SipManagerDelegate-Cleanup", true).schedule(new TimerTask() {
+			@Override
+			public void run() {
+				try {
+					removeAllSessionsCreatedBefore(System.currentTimeMillis() - (cleanupMaxAllowedAgeSec * 1000));
+				} catch (Throwable t) {
+					logger.warn("Error during periodic session cleanup", t);
+				}
+			}
+		}, cleanupPeriodSec, cleanupPeriodSec);
+    }
+    
 	/**
 	 * @return the SipFactoryImpl
 	 */
@@ -492,23 +515,64 @@ public abstract class SipManagerDelegate {
 	/**
 	 * Remove the sip sessions and sip application sessions 
 	 */
-	public void removeAllSessions() {		
-		List<SipSessionKey> sipSessionsToRemove = new ArrayList<SipSessionKey>(); 
-		for (SipSessionKey sipSessionKey : sipSessions.keySet()) {
-			sipSessionsToRemove.add(sipSessionKey);
-		}
-		for (SipSessionKey sipSessionKey : sipSessionsToRemove) {
-			removeSipSession(sipSessionKey);
-		}
-		List<SipApplicationSessionKey> sipApplicationSessionsToRemove = new ArrayList<SipApplicationSessionKey>(); 
-		for (SipApplicationSessionKey sipApplicationSessionKey : sipApplicationSessions.keySet()) {
-			sipApplicationSessionsToRemove.add(sipApplicationSessionKey);
-		}
-		for (SipApplicationSessionKey sipApplicationSessionKey : sipApplicationSessionsToRemove) {
-			removeSipApplicationSession(sipApplicationSessionKey);
-		}				
+	public void removeAllSessions() {
+		removeAllSessionsCreatedBefore(Long.MAX_VALUE);
 	}
 	
+	/**
+	 * Remove all SS and SAS that were created before the earliest allowed creation time. 
+	 */
+	private void removeAllSessionsCreatedBefore(long timestamp) {
+		sipSessions.entrySet().removeIf(e -> {
+			MobicentsSipSession v = e.getValue();
+			if (v.getCreationTime() < timestamp) {
+				String details;
+				try {
+					details = "ID: " + v.getId() + ", Call-ID: " + v.getCallId() + ", created at "
+							+ v.getCreationTime();
+				} catch (Throwable t) {
+					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				}
+				logger.warn("Removing leaked SipSession [" + details + "]");
+				return true;
+			} else {
+				return false;
+			}
+		});
+
+		sipApplicationSessions.entrySet().removeIf(e -> {
+			MobicentsSipApplicationSession v = e.getValue();
+			if (v.getCreationTime() < timestamp) {
+				String details;
+				try {
+					details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
+				} catch (Throwable t) {
+					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				}
+				logger.warn("Removing leaked SipApplicationSession [" + details + "]");
+				return true;
+			} else {
+				return false;
+			}
+		});
+
+		sipApplicationSessionsByAppGeneratedKey.entrySet().removeIf(e -> {
+			MobicentsSipApplicationSession v = e.getValue();
+			if (v.getCreationTime() < timestamp) {
+				String details;
+				try {
+					details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
+				} catch (Throwable t) {
+					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				}
+				logger.warn("Removing leaked SipApplicationSession [" + details + "]");
+				return true;
+			} else {
+				return false;
+			}
+		});
+	}
+
 	protected abstract MobicentsSipSession getNewMobicentsSipSession(SipSessionKey key, SipFactoryImpl sipFactoryImpl, MobicentsSipApplicationSession mobicentsSipApplicationSession);
 	
 	protected abstract MobicentsSipApplicationSession getNewMobicentsSipApplicationSession(SipApplicationSessionKey key, SipContext sipContext);

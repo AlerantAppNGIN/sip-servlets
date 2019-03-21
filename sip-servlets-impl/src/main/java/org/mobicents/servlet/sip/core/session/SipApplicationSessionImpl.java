@@ -381,9 +381,6 @@ public class SipApplicationSessionImpl implements MobicentsSipApplicationSession
 	 * @see javax.servlet.sip.SipApplicationSession#getCreationTime()
 	 */
 	public long getCreationTime() {
-		if(!isValid()) {
-			throw new IllegalStateException("SipApplicationSession already invalidated !");
-		}
 		return creationTime;
 	}
 
