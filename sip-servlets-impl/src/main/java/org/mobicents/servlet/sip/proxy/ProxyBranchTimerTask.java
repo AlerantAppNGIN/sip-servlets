@@ -43,6 +43,12 @@ public class ProxyBranchTimerTask extends TimerTask{
 	@Override
 	public void run()
 	{
+		// save and use local references to avoid NPE if cancelled from the outside during run
+		MobicentsSipApplicationSession sipApplicationSession = this.sipApplicationSession;
+		ProxyBranchImpl proxyBranch = this.proxyBranch;
+		ResponseType responseType = this.responseType;
+		if (sipApplicationSession == null)
+			return;
 		final SipContext sipContext = sipApplicationSession.getSipContext();
 		boolean batchStarted = false;
 		try {
@@ -51,7 +57,7 @@ public class ProxyBranchTimerTask extends TimerTask{
 				sipContext.enterSipApp(sipApplicationSession, null, false, true);
 				batchStarted = sipContext.enterSipAppHa(true);
 				if(proxyBranch != null) {
-					proxyBranch.onTimeout(this.responseType);
+					proxyBranch.onTimeout(responseType);
 				}
 		} catch (Exception e) {
 			logger.error("Problem in timeout task", e);
@@ -66,6 +72,7 @@ public class ProxyBranchTimerTask extends TimerTask{
 	public boolean cancel() {
 		proxyBranch = null;
 		responseType = null;
+		sipApplicationSession = null;
 		return super.cancel();
 	}
 
