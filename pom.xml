@@ -7,7 +7,7 @@
 	</parent>
 	<groupId>org.mobicents.servlet.sip</groupId>
 	<artifactId>sip-servlets-bootstrap</artifactId>
-	<version>3.0.0-tsdp-paas-5</version>
+	<version>3.0.0-tsdp-paas-6</version>
 	<packaging>pom</packaging>
 
 	<name>Restcomm Sip Servlets</name>
@@ -89,8 +89,8 @@
 
 	<properties>
 		<restcomm.tools.mavenplugin.eclipse.version>1.0.0.FINAL</restcomm.tools.mavenplugin.eclipse.version>
-                <jain-sip-api.version>1.2.0-tsdp-paas-5</jain-sip-api.version>
-                <jain-sip-ri.version>1.2.295-tsdp-paas-5</jain-sip-ri.version>
+                <jain-sip-api.version>1.2.0-tsdp-paas-6</jain-sip-api.version>
+                <jain-sip-ri.version>1.2.295-tsdp-paas-6</jain-sip-ri.version>
 		<restcomm.cluster.version>1.15.26</restcomm.cluster.version>
 		<restcomm.balancer.version>2.0.41</restcomm.balancer.version>
 		<restcomm.jain.sip.ha.version>1.5.34</restcomm.jain.sip.ha.version>
