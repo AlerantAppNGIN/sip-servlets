@@ -523,17 +523,21 @@ public abstract class SipManagerDelegate {
 	 * Remove all SS and SAS that were created before the earliest allowed creation time. 
 	 */
 	private void removeAllSessionsCreatedBefore(long timestamp) {
+		// only warn for regular cleanups, not when deleting everything
+		final boolean warn = timestamp < Long.MAX_VALUE;
 		sipSessions.entrySet().removeIf(e -> {
 			MobicentsSipSession v = e.getValue();
 			if (v.getCreationTime() < timestamp) {
-				String details;
-				try {
-					details = "ID: " + v.getId() + ", Call-ID: " + v.getCallId() + ", created at "
-							+ v.getCreationTime();
-				} catch (Throwable t) {
-					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				if (warn) {
+					String details;
+					try {
+						details = "ID: " + v.getId() + ", Call-ID: " + v.getCallId() + ", created at "
+								+ v.getCreationTime();
+					} catch (Throwable t) {
+						details = "ERROR GETTING DETAILS: " + t.getMessage();
+					}
+					logger.warn("Removing leaked SipSession [" + details + "]");
 				}
-				logger.warn("Removing leaked SipSession [" + details + "]");
 				return true;
 			} else {
 				return false;
@@ -543,13 +547,15 @@ public abstract class SipManagerDelegate {
 		sipApplicationSessions.entrySet().removeIf(e -> {
 			MobicentsSipApplicationSession v = e.getValue();
 			if (v.getCreationTime() < timestamp) {
-				String details;
-				try {
-					details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
-				} catch (Throwable t) {
-					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				if (warn) {
+					String details;
+					try {
+						details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
+					} catch (Throwable t) {
+						details = "ERROR GETTING DETAILS: " + t.getMessage();
+					}
+					logger.warn("Removing leaked SipApplicationSession [" + details + "]");
 				}
-				logger.warn("Removing leaked SipApplicationSession [" + details + "]");
 				return true;
 			} else {
 				return false;
@@ -559,13 +565,15 @@ public abstract class SipManagerDelegate {
 		sipApplicationSessionsByAppGeneratedKey.entrySet().removeIf(e -> {
 			MobicentsSipApplicationSession v = e.getValue();
 			if (v.getCreationTime() < timestamp) {
-				String details;
-				try {
-					details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
-				} catch (Throwable t) {
-					details = "ERROR GETTING DETAILS: " + t.getMessage();
+				if (warn) {
+					String details;
+					try {
+						details = "ID: " + v.getId() + ", created at " + v.getCreationTime();
+					} catch (Throwable t) {
+						details = "ERROR GETTING DETAILS: " + t.getMessage();
+					}
+					logger.warn("Removing leaked SipApplicationSession [" + details + "]");
 				}
-				logger.warn("Removing leaked SipApplicationSession [" + details + "]");
 				return true;
 			} else {
 				return false;
