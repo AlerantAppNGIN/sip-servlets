@@ -136,8 +136,8 @@ public abstract class SipManagerDelegate {
     private long lastSipSessionUpdatedTime = 0;
     private double lastAverageSsCreationPerSecond = 0.0;
     
-    // check for leaked sessions and applicationsessions every cleanupPeriodSec seconds (10m by default).
-   {    	
+   // check for leaked sessions and applicationsessions every cleanupPeriodSec seconds (10m by default).
+   {
 		int cleanupPeriodSec = Integer
 				.getInteger("org.mobicents.servlet.sip.core.session.SipManagerDelegate.cleanupPeriodSec", 600);
 		int cleanupMaxAllowedAgeSec = Integer
@@ -153,9 +153,9 @@ public abstract class SipManagerDelegate {
 					logger.warn("Error during periodic session cleanup", t);
 				}
 			}
-		}, cleanupPeriodSec, cleanupPeriodSec);
+		}, cleanupPeriodSec * 1000, cleanupPeriodSec * 1000);
     }
-    
+
 	/**
 	 * @return the SipFactoryImpl
 	 */
