@@ -170,12 +170,12 @@
 					<scope>provided</scope>
 				</dependency>
 
-				<dependency>
+				<!--dependency>
 					<groupId>org.mobicents.servlet.sip</groupId>
 					<artifactId>sip-servlets-jruby</artifactId>
 					<version>${project.version}</version>
 					<scope>provided</scope>
-				</dependency>
+				</dependency-->
 
 				<dependency>
 					<groupId>org.mobicents.servlet.sip</groupId>
@@ -251,12 +251,12 @@
 					<version>${project.version}</version>
 				</dependency>
 
-				<dependency>
+				<!--dependency>
 					<groupId>org.mobicents.tools</groupId>
 					<artifactId>sip-balancer-jar</artifactId>
 					<version>${restcomm.balancer.version}</version>
 					<scope>provided</scope>
-				</dependency>				
+				</dependency-->
 			</dependencies>
 
 			<properties>
