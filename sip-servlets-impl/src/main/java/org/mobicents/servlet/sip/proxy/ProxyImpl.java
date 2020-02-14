@@ -937,12 +937,20 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			} else {
 				// retransmission case, RFC3261 specifies that the retrans should be proxied statelessly
 				final Message message = proxiedResponse.getMessage();
-				String transport = JainSipUtils.findTransport(message);
-				SipProvider sipProvider = getSipFactoryImpl().getSipNetworkInterfaceManager().findMatchingListeningPoint(
-						transport, false).getSipProvider();
-				try {
+				SipURI outboundif = ((ProxyImpl) proxyBranch.getProxy()).getOutboundInterface();
+				SipProvider sipProvider = null;
+				if(outboundif != null) {
+					javax.sip.address.SipURI uri = ((SipURIImpl)outboundif).getSipURI();
+					sipProvider = getSipFactoryImpl().getSipNetworkInterfaceManager().findMatchingListeningPoint(uri, false).getSipProvider();
+					if(logger.isDebugEnabled())
+						logger.debug("Sending out proxied final response retransmission using session outbound uri " + outboundif + ", " + proxiedResponse);
+				} else {
+					String transport = JainSipUtils.findTransport(message);
+					sipProvider = getSipFactoryImpl().getSipNetworkInterfaceManager().findMatchingListeningPoint(transport, false).getSipProvider();
 					if(logger.isDebugEnabled())
 						logger.debug("Sending out proxied final response retransmission " + proxiedResponse);
+				}
+				try {
 					sipProvider.sendResponse((Response)message);
 				} catch (SipException e) {
 					logger.error("A problem occured while proxying the final response retransmission", e);
