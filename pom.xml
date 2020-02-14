@@ -303,7 +303,7 @@
 		<profile>
 			<id>tomcat-7</id>
 			<activation>
-				<activeByDefault>true</activeByDefault>
+				<activeByDefault>false</activeByDefault>
 			</activation>
 			<modules>
 				<module>containers/sip-servlets-catalina-7</module>
@@ -338,7 +338,7 @@
 		<profile>
 			<id>tomcat-8</id>
 			<activation>
-				<activeByDefault>true</activeByDefault>
+				<activeByDefault>false</activeByDefault>
 			</activation>
 			<modules>
 				<module>containers/sip-servlets-catalina-8</module>
@@ -454,6 +454,9 @@
 		</profile>
 		<profile>
 			<id>as10</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
 			<modules>
 				<module>containers/sip-servlets-as10</module>
 				<module>containers/sip-servlets-as10-drop-in/jboss-as-restcomm</module>
