@@ -28,7 +28,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
@@ -49,34 +48,43 @@ import org.mobicents.servlet.sip.message.SipFactoryImpl;
 public abstract class SipManagerDelegate {
 
 	private static final Logger logger = Logger.getLogger(SipManagerDelegate.class);
+
+	/**
+     * The maximum number of active Sip Sessions allowed, or -1 for no limit.
+     */
+    protected int maxActiveSipSessions = Integer.getInteger("org.mobicents.servlet.sip.core.session.SipManagerDelegate.maxActiveSipSessions", -1);
+    
+    /**
+     * The maximum number of active Sip Application Sessions allowed, or -1 for no limit.
+     */
+    protected int maxActiveSipApplicationSessions = Integer.getInteger("org.mobicents.servlet.sip.core.session.SipManagerDelegate.maxActiveSipApplicationSessions", -1);
+    
 	
 	protected ConcurrentHashMap<SipApplicationSessionKey, MobicentsSipApplicationSession> sipApplicationSessions = 
-		new ConcurrentHashMap<SipApplicationSessionKey, MobicentsSipApplicationSession>();
+			new ConcurrentHashMap<SipApplicationSessionKey, MobicentsSipApplicationSession>(
+					maxActiveSipApplicationSessions > 0 ? maxActiveSipApplicationSessions + 1 : 1024,
+					1.0f,
+					Runtime.getRuntime().availableProcessors());
 
 	protected ConcurrentHashMap<String, MobicentsSipApplicationSession> sipApplicationSessionsByAppGeneratedKey = 
-		new ConcurrentHashMap<String, MobicentsSipApplicationSession>();
+			new ConcurrentHashMap<String, MobicentsSipApplicationSession>(
+					maxActiveSipApplicationSessions > 0 ? maxActiveSipApplicationSessions + 1 : 1024,
+					1.0f,
+					Runtime.getRuntime().availableProcessors());
 	
 	//if it's never cleaned up a memory leak will occur
 	//Shall we have a thread scanning for invalid sessions and removing them accordingly ?
 	//=> after a chat with ranga the better way to go for now is removing on processDialogTerminated
 	// UPDATE: for whatever reason, some sessions still leak, so run a periodic check and throw them out to be sure
 	protected ConcurrentHashMap<SipSessionKey, MobicentsSipSession> sipSessions = 
-		new ConcurrentHashMap<SipSessionKey, MobicentsSipSession>();
+		new ConcurrentHashMap<SipSessionKey, MobicentsSipSession>( maxActiveSipSessions > 0 ? maxActiveSipSessions + 1 : 1024,
+				1.0f,
+				Runtime.getRuntime().availableProcessors());
 
 	protected SipFactoryImpl sipFactoryImpl;
 	
 	protected SipContext container;
 
-	/**
-     * The maximum number of active Sip Sessions allowed, or -1 for no limit.
-     */
-    protected int maxActiveSipSessions = -1;
-    
-    /**
-     * The maximum number of active Sip Application Sessions allowed, or -1 for no limit.
-     */
-    protected int maxActiveSipApplicationSessions = -1;
-    
     /**
      * Number of sip session creations that failed due to maxActiveSipSessions.
      */
