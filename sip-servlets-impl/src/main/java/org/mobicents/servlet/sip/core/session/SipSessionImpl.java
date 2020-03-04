@@ -1055,8 +1055,8 @@ public class SipSessionImpl implements MobicentsSipSession {
 		
 		sipApplicationSession.onSipSessionReadyToInvalidate(this);
 		if(ongoingTransactions != null) {
-			if(logger.isDebugEnabled()) {
-				logger.debug(ongoingTransactions.size() + " ongoing transactions still present in the following sip session " + key + " on invalidation");
+			if(!ongoingTransactions.isEmpty()) {
+				logger.warn(ongoingTransactions.size() + " ongoing transactions still present in the following sip session " + key + " on invalidation");
 			}
 			for(Transaction transaction : ongoingTransactions) {
 				if(!TransactionState.TERMINATED.equals(transaction.getState())) {
@@ -1067,6 +1067,13 @@ public class SipSessionImpl implements MobicentsSipSession {
 						transaction.terminate();
 					} catch (ObjectInUseException e) {
 						// no worries about this one, we just try to eagerly  terminate the tx is the sip session has been forcefully invalidated
+					}
+				} else { // TERMINATED
+					if (transaction.getRequest() != null) {
+						Request req = transaction.getRequest();
+						logger.warn("Terminated " + req.getMethod() + " transaction (CSeq: "
+								+ ((CSeqHeader) req.getHeader("CSeq")).getSeqNumber()
+								+ ") still present in sip session " + key + " on invalidation");
 					}
 				}
 			}
