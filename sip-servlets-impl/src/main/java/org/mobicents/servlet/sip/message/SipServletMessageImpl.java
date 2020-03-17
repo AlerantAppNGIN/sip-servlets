@@ -1001,12 +1001,12 @@ public abstract class SipServletMessageImpl implements MobicentsSipServletMessag
 	 * @see javax.servlet.sip.SipServletMessage#getRemoteAddr()
 	 */
 	public String getRemoteAddr() {
-		if(getTransaction() != null) {
-			if(((SIPTransaction)getTransaction()).getPeerPacketSourceAddress() != null &&
-					((SIPTransaction)getTransaction()).getPeerPacketSourceAddress().getHostAddress() != null) {
-				return ((SIPTransaction)getTransaction()).getPeerPacketSourceAddress().getHostAddress();
+		final SIPTransaction t = (SIPTransaction) getTransaction();
+		if(t != null) {
+			if(t.getPeerPacketSourceAddress() != null && t.getPeerPacketSourceAddress().getHostAddress() != null) {
+				return t.getPeerPacketSourceAddress().getHostAddress();
 			} else {
-				return ((SIPTransaction)getTransaction()).getPeerAddress();
+				return t.getPeerAddress();
 			}
 		} else {
 			ViaHeader via = (ViaHeader) message.getHeader(ViaHeader.NAME);
@@ -1031,11 +1031,12 @@ public abstract class SipServletMessageImpl implements MobicentsSipServletMessag
 	public int getRemotePort() {
 		int port = -1;
 
-		if(getTransaction() != null) {
-			if(((SIPTransaction)getTransaction()).getPeerPacketSourceAddress() != null) {
-				port = ((SIPTransaction)getTransaction()).getPeerPacketSourcePort();
+		final SIPTransaction t = (SIPTransaction) getTransaction();
+		if(t != null) {
+			if(t.getPeerPacketSourceAddress() != null) {
+				port = t.getPeerPacketSourcePort();
 			} else {
-				port = ((SIPTransaction)getTransaction()).getPeerPort();
+				port = t.getPeerPort();
 			}
 		} else {
 			ViaHeader via = (ViaHeader) message.getHeader(ViaHeader.NAME);
@@ -1062,8 +1063,9 @@ public abstract class SipServletMessageImpl implements MobicentsSipServletMessag
 	 * @see javax.servlet.sip.SipServletMessage#getTransport()
 	 */
 	public String getTransport() {
-		if(getTransaction() != null) {
-			return ((SIPTransaction)getTransaction()).getTransport();
+		SIPTransaction t = (SIPTransaction) getTransaction();
+		if(t != null) {
+			return t.getTransport();
 		} else {
 			return null;
 		}
@@ -1824,8 +1826,9 @@ public abstract class SipServletMessageImpl implements MobicentsSipServletMessag
 		if (this.dialog != null) {
 			return dialog;
 		}
-		if (this.getTransaction() != null) {
-			return this.getTransaction().getDialog();
+		Transaction t = this.getTransaction();
+		if (t != null) {
+			return t.getDialog();
 		}
 		return null;
 	}
