@@ -587,7 +587,7 @@ public class InitialRequestDispatcher extends RequestDispatcher {
 				case ROUTE_BACK :
 					try {
 						// Push container Route, pick up the first outbound interface
-						SipURI sipURI = sipApplicationDispatcher.getOutboundInterfaces().get(0);
+						SipURI sipURI = (SipURI) sipApplicationDispatcher.getOutboundInterfaces().get(0).clone();
 						sipURI.setParameter("modifier", "route_back");						
 						Header routeHeader = SipFactoryImpl.headerFactory.createHeader(RouteHeader.NAME, sipURI.toString());
 						// Fix for Issue 280 provided by eelcoc

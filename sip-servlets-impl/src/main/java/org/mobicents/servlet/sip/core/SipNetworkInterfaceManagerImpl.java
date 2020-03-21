@@ -377,14 +377,13 @@ public class SipNetworkInterfaceManagerImpl implements SipNetworkInterfaceManage
 	/**
 	 * Returns An immutable instance of the java.util.List interface containing 
 	 * the SipURI representation of IP addresses which are used by the container to send out the messages.
-	 * @return immutable List containing the SipURI representation of IP addresses 
+	 * Objects in the returned list should be clone()-ed before trying to modify them. 
+	 * @return immutable List containing the {@link ModifiableRule#NotModifiable NotModifiable} SipURI representations of IP addresses 
 	 */
 	public List<SipURI> getOutboundInterfaces() {
-		List<SipURI> ret = new ArrayList<>();
-		for (SipURI sipUri : outboundInterfaces) {
-			ret.add((SipURI) sipUri.clone());
-		}
-		return Collections.unmodifiableList(ret);
+		// return an unmodifiable list of the original, unmodifiable URIs, so that those who only store it won't have duplicate objects
+		// those who actually need to modify them will simply clone an instance at their point of use
+		return Collections.unmodifiableList(outboundInterfaces);
 	}
 	
 	/**

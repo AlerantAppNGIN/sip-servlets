@@ -1883,7 +1883,7 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 				}
 			} else if (SipRouteModifier.ROUTE_BACK.equals(sipRouteModifier)) {
 				// Push container Route, pick up the first outbound interface
-				final SipURI sipURI = getOutboundInterfaces().get(0);
+				final SipURI sipURI = (SipURI) getOutboundInterfaces().get(0).clone(); // clone to be able to modify!
 				sipURI.setParameter("modifier", "route_back");
 				Header routeHeader = SipFactoryImpl.headerFactory.createHeader(RouteHeader.NAME, sipURI.toString());
 				request.addHeader(routeHeader);
