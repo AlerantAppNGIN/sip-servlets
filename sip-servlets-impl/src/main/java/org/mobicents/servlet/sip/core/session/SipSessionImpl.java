@@ -1465,7 +1465,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 		}
 		if(sessionCreatingTransactionRequest != null) {
 			if(originalMethod == null) {
-				originalMethod = sessionCreatingTransactionRequest.getMethod();
+				originalMethod = sessionCreatingTransactionRequest.getMethod().intern();
 			}		
 			addOngoingTransaction(sessionCreatingTransactionRequest.getTransaction());
 			// Issue 906 : CSeq is not increased correctly for REGISTER requests if registrar requires authentication.
@@ -2120,7 +2120,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
 				address + " not found");		
 		try {
-			outboundInterface = new SipURIImpl(SipFactoryImpl.addressFactory.createSipURI(null, address), ModifiableRule.NotModifiable).toString();
+			outboundInterface = new SipURIImpl(SipFactoryImpl.addressFactory.createSipURI(null, address), ModifiableRule.NotModifiable).toString().intern();
 		} catch (ParseException e) {
 			logger.error("couldn't parse the SipURI from USER[" + null
 					+ "] HOST[" + address + "]", e);
@@ -2152,7 +2152,7 @@ public class SipSessionImpl implements MobicentsSipSession {
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
 				address + " not found");
 		try {
-			outboundInterface = new SipURIImpl(SipFactoryImpl.addressFactory.createSipURI(null, address), ModifiableRule.NotModifiable).toString();
+			outboundInterface = new SipURIImpl(SipFactoryImpl.addressFactory.createSipURI(null, address), ModifiableRule.NotModifiable).toString().intern();
 		} catch (ParseException e) {
 			logger.error("couldn't parse the SipURI from USER[" + null
 					+ "] HOST[" + address + "]", e);
@@ -2182,9 +2182,9 @@ public class SipSessionImpl implements MobicentsSipSession {
 		
 		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
 				outboundInterface + " not found");
-		this.outboundInterface = outboundInterface.toString();
+		this.outboundInterface = outboundInterface.toString().intern();
 		if(outboundInterface.getTransportParam() != null) {
-			this.transport = outboundInterface.getTransportParam();
+			setTransport(outboundInterface.getTransportParam());
 		}
 	}
 	
@@ -2554,8 +2554,8 @@ public class SipSessionImpl implements MobicentsSipSession {
 	public String getTransport() {
 		return transport;
 	}
-	public void setTransport(String transport) {
-		this.transport = transport;
+	public final void setTransport(String transport) {
+		this.transport = transport == null ? null : transport.intern();
 	}
 	
 	/*
