@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.ServletException;
 import javax.servlet.sip.Proxy;
@@ -93,6 +94,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private static final Logger logger = Logger.getLogger(ProxyBranchImpl.class);
 	private transient ProxyImpl proxy;
 	private transient SipServletRequestImpl originalRequest;
+	/** Reference to the original INVITE, only used for correct generation of CANCEL when cancel() is called on the proxy. */
 	private transient SipServletRequestImpl originalBranchRequest;
 	private transient SipServletRequestImpl prackOriginalRequest;
 	// From javadoc : object representing the request that is or to be proxied.
@@ -145,6 +147,11 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		}
 		public String branchId;
 		public SipServletRequestImpl request;
+		
+		@Override
+		public String toString() {
+			return "TR[b="+branchId+"; m="+request.getMethod() + "]";
+		}
 	}
 	
 	// empty constructor used only for Externalizable interface
@@ -274,6 +281,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 
 				}
 				canceled = true;
+				originalBranchRequest = null; // lose reference, it will not be used anymore
 			}
 			// FIXME: a branch should always be canceled after a call to cancel(), so why check for the method of the current request???
 			if(!this.isStarted() &&
@@ -758,37 +766,81 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	// https://code.google.com/p/sipservlets/issues/detail?id=238
 	public void addTransaction(SipServletRequestImpl request) {
         if(!request.getMethod().equalsIgnoreCase("ACK") && !request.getMethod().equalsIgnoreCase("PRACK")) {
-                String branch = ((Via)request.getMessage().getHeader(Via.NAME)).getBranch();
-                if(this.ongoingTransactions.add(new TransactionRequest(branch, request))) {
-                        request.getTransactionApplicationData().setProxyBranch(this);
-                        if(logger.isDebugEnabled()) {
-                                logger.debug("Added transaction "+branch+" to proxy branch.");
-                        }
-                }                                               
-        }                               
+            String branch = ((Via)request.getMessage().getHeader(Via.NAME)).getBranch();
+            this.ongoingTransactions.add(new TransactionRequest(branch, request));
+            request.getTransactionApplicationData().setProxyBranch(this);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Added " + request.getMethod() + " transaction " + branch + " to proxy branch.");
+            }
+        }
     }
 	
 	// https://code.google.com/p/sipservlets/issues/detail?id=238
 	public void removeTransaction(String branch) {
-		synchronized(this.ongoingTransactions) {
-			TransactionRequest remove = null;
-			for(TransactionRequest tr : this.ongoingTransactions) {
-				if(tr.branchId.equals(branch)) {
-					remove = tr;
-					break;
-				}
-			}
-			if(remove != null) {
-				boolean removed = this.ongoingTransactions.remove(remove);
-				if(logger.isDebugEnabled()) {
-					logger.debug("Removed transaction " + branch + " from proxy branch ? " + removed);
-				}
-			} else {
-				if(logger.isDebugEnabled()) {
+		synchronized (this.ongoingTransactions) {
+			final boolean removedFromOngoingTxs = this.ongoingTransactions.removeIf(tr -> tr.branchId.equals(branch));
+			final boolean removedStoredMessages = removeStoredMessagesOfTransaction(branch);
+			if (logger.isDebugEnabled()) {
+				if (removedFromOngoingTxs || removedStoredMessages) {
+					logger.debug("Removed transaction " + branch + " from proxy branch");
+				} else {
 					logger.debug("Removing transaction " + branch + " from proxy branch FAILED. Not found.");
 				}
+				logger.debug("ProxyBranch state:\n"
+						+ " ### lastResponse:\n" + this.lastResponse
+						+ " ### ongoingTransactions:\n" + this.ongoingTransactions + "\n"
+						+ " ### originalRequest:\n" + this.originalRequest
+						+ " ### originalBranchRequest:\n" + this.originalBranchRequest
+						+ " ### outgoingRequest:\n" + this.outgoingRequest
+						+ " ### prackOriginalRequest:\n" + this.prackOriginalRequest
+						);
 			}
 		}
+	}
+	
+	// remove all stored messages that match this branch
+	private boolean removeStoredMessagesOfTransaction(final String branch) {
+		boolean ret = false;
+		if(matchesBranch(lastResponse, branch)) {
+			lastResponse = null;
+			ret = true;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Removed lastResponse for branch " + branch + " from proxybranch");
+			}
+		}
+		if(matchesBranch(originalRequest, branch)) {
+			originalRequest = null;
+			ret = true;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Removed originalRequest for branch " + branch + " from proxybranch");
+			}
+		}
+		if(matchesBranch(originalBranchRequest, branch)) {
+			originalBranchRequest = null;
+			ret = true;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Removed originalBranchRequest for branch " + branch + " from proxybranch");
+			}
+		}
+		if(matchesBranch(outgoingRequest, branch)) {
+			outgoingRequest = null;
+			ret = true;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Removed outgoingRequest for branch " + branch + " from proxybranch");
+			}
+		}
+		if(matchesBranch(prackOriginalRequest, branch)) {
+			prackOriginalRequest = null;
+			ret = true;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Removed prackOriginalRequest for branch " + branch + " from proxybranch");
+			}
+		}
+		return ret;
+	}
+	
+	private boolean matchesBranch(SipServletMessageImpl msg, String branch) {
+		return branch.equals(Optional.ofNullable(msg).map(m -> m.getTransaction()).map(t -> t.getBranchId()).orElse(null));
 	}
 	
 	/**
@@ -827,6 +879,9 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		if(!request.getMethod().equalsIgnoreCase(Request.ACK) ) {
 			proxy.setOriginalRequest(request);
 			this.originalRequest = request;
+		} else { // it is an ACK
+			// After ACK, CANCEL cannot arrive anymore, so lose this ref that is only used in cancel(), which checks for proxy.getAckReceived()
+			this.originalBranchRequest = null;
 		}
 		
 		// No proxy params, sine the target is already in the Route headers

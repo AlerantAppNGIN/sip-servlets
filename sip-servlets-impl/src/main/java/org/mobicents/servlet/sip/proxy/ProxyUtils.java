@@ -455,7 +455,7 @@ public class ProxyUtils {
 			originalRequest =
 				(SipServletRequestImpl) proxyBranch.getPrackOriginalRequest();
 		}
-		
+		// TODO drop prackoriginalrequest and get orig request like this? ((org.mobicents.servlet.sip.message.TransactionApplicationData)transaction.getApplicationData()).getSipServletMessage();
 		SipServletResponseImpl newServletResponseImpl = null;
 		
 		if(transaction != null && originalRequest != null) {
