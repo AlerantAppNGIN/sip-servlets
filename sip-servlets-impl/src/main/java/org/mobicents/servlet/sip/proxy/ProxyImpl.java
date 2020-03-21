@@ -179,7 +179,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
     public void removeTransaction(String txId) {
             if(this.transactionMap.remove(txId) != null) {
                     if(logger.isDebugEnabled()) {
-                            logger.debug("Transaction "+txId+" removed from proxy.");
+                            logger.debug("Transaction "+txId+" removed from proxy. Remaining transactions: " + this.transactionMap);
                     }
             }
             checkAndCleanProxy();

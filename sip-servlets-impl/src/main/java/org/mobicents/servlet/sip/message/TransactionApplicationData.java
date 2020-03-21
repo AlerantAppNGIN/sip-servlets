@@ -73,6 +73,11 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 		messageCleanedUp = new AtomicBoolean(false);
 	}
 	
+	@Override
+	public String toString() {
+		return "TAD[" + method + " tx "+ transaction +"]";
+	}
+
 	public void setProxyBranch(ProxyBranchImpl proxyBranch) {
 		this.proxyBranch = proxyBranch;
 	}
