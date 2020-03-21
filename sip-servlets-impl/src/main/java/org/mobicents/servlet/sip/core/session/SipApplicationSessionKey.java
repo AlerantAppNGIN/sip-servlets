@@ -46,7 +46,6 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 	private final String uuid;
 	private final String appGeneratedKey;
 	private final String applicationName;
-	private String toString;
 	
 	/**
 	 * @param id
@@ -55,7 +54,7 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 	public SipApplicationSessionKey(String id, String applicationName, String appGeneratedKey) {
 		super();
 		this.appGeneratedKey = appGeneratedKey;
-		this.applicationName = applicationName;
+		this.applicationName = applicationName.intern(); // application name is fixed for a deployment and constant for all of its calls, so only store once to save on memory
 		// "While processing the initial request after selecting the application, the 
 		// container MUST look for this annotated static method within the application. 
 		// If found, the container MUST call the method to get the key and generate an 
@@ -72,7 +71,6 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 			if(logger.isDebugEnabled()) {
 				logger.debug("uuid for appGeneratedKey " + appGeneratedKey + " set to " + uuid);
 			}
-			toString = appGeneratedKey + SessionManagerUtil.SESSION_KEY_SEPARATOR + uuid + SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationName;
 		} else {
 			if(id == null) {
 				// Issue 1551 : SipApplicationSessionKey is not unique
@@ -85,7 +83,6 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 			} else {
 				this.uuid = id;
 			}					
-			toString = uuid + SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationName;
 		}
 	}
 	/**
@@ -146,9 +143,13 @@ public final class SipApplicationSessionKey implements Serializable, MobicentsSi
 			return false;
 		return true;
 	}		
-	
+
 	@Override
 	public String toString() {
-		return toString;
+		if (appGeneratedKey != null) {
+			return appGeneratedKey + SessionManagerUtil.SESSION_KEY_SEPARATOR + uuid + SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationName;
+		} else {
+			return uuid + SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationName;
+		}
 	}
 }
