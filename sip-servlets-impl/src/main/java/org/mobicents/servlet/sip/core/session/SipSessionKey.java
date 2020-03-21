@@ -62,7 +62,7 @@ public final class SipSessionKey implements MobicentsSipSessionKey, Serializable
 		this.fromTag = fromTag;
 		this.toTag = toTag;
 		this.callId = callId;
-		this.applicationName = applicationName;
+		this.applicationName = applicationName.intern(); // application name is fixed for a deployment and constant for all of its sessions, so only store once to save on memory
 		this.applicationSessionId = applicationSessionId;
 		
 		computeToString();		
@@ -167,17 +167,11 @@ public final class SipSessionKey implements MobicentsSipSessionKey, Serializable
 			computeToString();
 		}
 	}
-	
-	/**
-	 * @param toString the toString to set
-	 */
-	public void setToString(String toString) {
-		this.toString = toString;
-	}
+
 	/**
 	 * @return the toString
 	 */
-	public void computeToString() {
+	private void computeToString() {
 		if(toTag != null) {
 			// Issue 2365 : to tag needed for getApplicationSession().getSipSession(<sessionId>) to return forked session and not the parent one
 			toString = "(" + fromTag + SessionManagerUtil.SESSION_KEY_SEPARATOR + toTag + SessionManagerUtil.SESSION_KEY_SEPARATOR + callId + SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationSessionId +SessionManagerUtil.SESSION_KEY_SEPARATOR + applicationName + ")";
