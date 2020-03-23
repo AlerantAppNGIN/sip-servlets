@@ -195,7 +195,7 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
         	originalRequest.cleanUpLastResponses();
         	originalRequest = null;
         	if(recordRouteURI != null) {
-        		recordRouteURIString = recordRouteURI.toString();
+        		recordRouteURIString = recordRouteURI.toString().intern();
         		recordRouteURI = null;
         	}
         	if(finalBranchForSubsequentRequests != null) {
@@ -543,11 +543,11 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 			// record route should be based on the original received message
 			javax.sip.address.SipURI flowUri= originalRequest.getSipSession().getFlow();
 			if(flowUri != null) {				
-				this.recordRouteURIString = flowUri.toString();
+				this.recordRouteURIString = flowUri.toString().intern();
 				if(logger.isDebugEnabled())
 					logger.debug("Using Session Flow URI as record route URI " + recordRouteURIString);
 			} else {
-				this.recordRouteURIString = JainSipUtils.createRecordRouteURI( sipFactoryImpl.getSipNetworkInterfaceManager(), message).toString();
+				this.recordRouteURIString = JainSipUtils.createRecordRouteURI( sipFactoryImpl.getSipNetworkInterfaceManager(), message).toString().intern();
 			}
 			if(logger.isDebugEnabled()) {
 				logger.debug("Record routing enabled for proxy, Record Route used will be : " + recordRouteURIString);
