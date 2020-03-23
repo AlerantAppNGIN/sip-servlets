@@ -102,7 +102,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private transient SipServletResponseImpl lastResponse;
 	// https://telestax.atlassian.net/browse/MSS-153 moving to String to optimize memory usage
 	private String targetURI;
-	private transient SipURI outboundInterface;
 	// https://telestax.atlassian.net/browse/MSS-153 moving to String to optimize memory usage
 	private transient String recordRouteURIString;
 	// https://telestax.atlassian.net/browse/MSS-153 need to keep it as URI for the time of the transaction as
@@ -173,7 +172,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			this.recordRouteURIString = proxy.recordRouteURIString;
 		}
 		this.pathURI = proxy.pathURI;
-		this.outboundInterface = proxy.getOutboundInterface();
 //		if(recordRouteURI != null) {
 //			this.recordRouteURI = (SipURI)((SipURIImpl)recordRouteURI).clone();			
 //		}
@@ -501,7 +499,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				outgoingRequest,
 				this,
 				destination,
-				this.outboundInterface,
 				recordRoute, 
 				this.pathURI);
 		//tells the application dispatcher to stop routing the original request
@@ -889,9 +886,9 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		Request clonedRequest = null;
 		if(request.getMethod().equalsIgnoreCase(Request.NOTIFY) || request.getMethod().equalsIgnoreCase(Request.SUBSCRIBE)) {
 			// https://github.com/RestComm/sip-servlets/issues/121 http://tools.ietf.org/html/rfc6665#section-4.3
-			clonedRequest = ProxyUtils.createProxiedRequest(request, this, null, outboundInterface, recordRouteURI, null);
+			clonedRequest = ProxyUtils.createProxiedRequest(request, this, null, recordRouteURI, null);
 		} else {
-			clonedRequest = ProxyUtils.createProxiedRequest(request, this, null, null, null, null);
+			clonedRequest = ProxyUtils.createProxiedRequest(request, this, null, null, null);
 		}
 
 //      There is no need for that, it makes application composition fail (The subsequent request is not dispatched to the next application since the route header is removed)
@@ -1039,7 +1036,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		// as described in https://lists.cs.columbia.edu/pipermail/sip-implementors/2003-June/004986.html
 		// we should record route on reINVITE as well for robustness in case of UA crash, so adding recordRouteURI in the call to this method
 		Request clonedRequest = 
-			ProxyUtils.createProxiedRequest(request, this, targetURI, null, recordRoute, null);
+			ProxyUtils.createProxiedRequest(request, this, targetURI, recordRoute, null);
 
 		ViaHeader viaHeader = (ViaHeader) clonedRequest.getHeader(ViaHeader.NAME);
 		try {
@@ -1293,48 +1290,22 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 * {@inheritDoc}
 	 */
 	public void setOutboundInterface(InetAddress inetAddress) {
-		if(inetAddress == null) {
-			throw new NullPointerException("outbound Interface param shouldn't be null");
+		// Since the value set here was never actually used anywhere, don't even bother saving the value or performing any checks...
+		// Note that the spec is broken by not throwing an exception for invalid values, but we'd rather save some cpu cycles here.
+		if(logger.isDebugEnabled()) {
+			logger.debug("Ignoring setOutboundInterface " + inetAddress);
 		}
-		checkSessionValidity();
-		String address = inetAddress.getHostAddress();
-		
-		List<SipURI> list = proxy.getSipFactoryImpl().getSipNetworkInterfaceManager().getOutboundInterfaces();
-		SipURI networkInterface = null;
-		for(SipURI networkInterfaceURI : list) {
-			if(networkInterfaceURI.toString().contains(address)) {
-				networkInterface = networkInterfaceURI;
-				break;
-			}
-		}
-		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
-				outboundInterface + " not found");	
-		
-		outboundInterface = proxy.getSipFactoryImpl().createSipURI(null, address);		
 	}
 
 	/**
 	 * {@inheritDoc}
 	 */
 	public void setOutboundInterface(InetSocketAddress inetSocketAddress) {
-		if(inetSocketAddress == null) {
-			throw new NullPointerException("outbound Interface param shouldn't be null");
+		// Since the value set here was never actually used anywhere, don't even bother saving the value or performing any checks...
+		// Note that the spec is broken by not throwing an exception for invalid values, but we'd rather save some cpu cycles here.
+		if(logger.isDebugEnabled()) {
+			logger.debug("Ignoring setOutboundInterface " + inetSocketAddress);
 		}
-		checkSessionValidity();
-		String address = inetSocketAddress.getAddress().getHostAddress() + ":" + inetSocketAddress.getPort();
-		
-		List<SipURI> list = proxy.getSipFactoryImpl().getSipNetworkInterfaceManager().getOutboundInterfaces();
-		SipURI networkInterface = null;
-		for(SipURI networkInterfaceURI : list) {
-			if(networkInterfaceURI.toString().contains(address)) {
-				networkInterface = networkInterfaceURI;
-				break;
-			}
-		}
-		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
-				outboundInterface + " not found");	
-		
-		outboundInterface = proxy.getSipFactoryImpl().createSipURI(null, address);		
 	}
 	
 	/*
@@ -1342,23 +1313,11 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 * @see org.mobicents.javax.servlet.sip.ProxyExt#setOutboundInterface(javax.servlet.sip.SipURI)
 	 */
 	public void setOutboundInterface(SipURI outboundInterface) {
-		checkSessionValidity();
-		if(outboundInterface == null) {
-			throw new NullPointerException("outbound Interface param shouldn't be null");
+		// Since the value set here was never actually used anywhere, don't even bother saving the value or performing any checks...
+		// Note that the spec is broken by not throwing an exception for invalid values, but we'd rather save some cpu cycles here.
+		if(logger.isDebugEnabled()) {
+			logger.debug("Ignoring setOutboundInterface " + outboundInterface);
 		}
-		List<SipURI> list = proxy.getSipFactoryImpl().getSipNetworkInterfaceManager().getOutboundInterfaces();
-		SipURI networkInterface = null;
-		for(SipURI networkInterfaceURI : list) {
-			if(networkInterfaceURI.equals(outboundInterface)) {
-				networkInterface = networkInterfaceURI;
-				break;
-			}
-		}
-		
-		if(networkInterface == null) throw new IllegalArgumentException("Network interface for " +
-				outboundInterface + " not found");		
-		
-		this.outboundInterface = networkInterface;
 	}
 
 	/**
@@ -1471,7 +1430,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	public void setOriginalRequest(SipServletRequestImpl originalRequest) {
 		this.originalRequest = originalRequest;
 		if(originalRequest == null && recordRouteURI != null) {
-			recordRouteURIString = recordRouteURI.toString();
+			recordRouteURIString = recordRouteURI.toString().intern();
 			recordRouteURI = null;
 		}
 	}

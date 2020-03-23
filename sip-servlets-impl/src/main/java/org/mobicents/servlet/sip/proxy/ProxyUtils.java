@@ -67,7 +67,7 @@ import org.mobicents.servlet.sip.startup.StaticServiceHolder;
 public class ProxyUtils {
 	private static final Logger logger = Logger.getLogger(ProxyUtils.class);
 	
-	public static Request createProxiedRequest(SipServletRequestImpl originalRequest, ProxyBranchImpl proxyBranch, URI destination, SipURI outboundInterface, SipURI routeRecord, SipURI path)
+	public static Request createProxiedRequest(SipServletRequestImpl originalRequest, ProxyBranchImpl proxyBranch, URI destination, SipURI routeRecord, SipURI path)
 	{
 		try {
 			final Request clonedRequest = (Request) originalRequest.getMessage().clone();
