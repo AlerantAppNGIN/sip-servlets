@@ -61,6 +61,10 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	}
 
 	public javax.sip.address.SipURI getSipURI() {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			// return a clone, as SipURI is not immutable and the stored instance should not be modified
+			return (javax.sip.address.SipURI) super.uri.clone();
+		}
 		return (javax.sip.address.SipURI) super.uri;
 
 	}
@@ -184,6 +188,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setHeader(java.lang.String, java.lang.String)
 	 */
 	public void setHeader(String name, String value) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		// encode name and value according to RFC requirements for the underlying URI
 		String encName = RFC2396UrlDecoder.encode(name, EncodingRule.RFC3261_HNAME_HVALUE);
 		String encValue = RFC2396UrlDecoder.encode(value, EncodingRule.RFC3261_HNAME_HVALUE);
@@ -278,6 +285,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setSecure(boolean)
 	 */
 	public void setSecure(boolean b) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		getSipURI().setSecure(b);
 	}
 
@@ -286,6 +296,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setTTLParam(int)
 	 */
 	public void setTTLParam(int ttl) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		try {
 			getSipURI().setTTLParam(ttl);
 			super.parameters.put(TTL, "" + ttl);
@@ -299,6 +312,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setTransportParam(java.lang.String)
 	 */
 	public void setTransportParam(String transport) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		try {
 			getSipURI().setParameter(TRANSPORT, transport);
 			super.parameters.put(TRANSPORT, transport);
@@ -327,6 +343,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setUserParam(java.lang.String)
 	 */
 	public void setUserParam(String user) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		try {
 			getSipURI().setUserParam(user);
 			super.parameters.put(USER, user);
@@ -340,6 +359,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#setUserPassword(java.lang.String)
 	 */
 	public void setUserPassword(String password) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		try {
 			getSipURI().setUserPassword(password);
 		} catch (ParseException e) {
@@ -377,6 +399,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.Parameterable#setValue(java.lang.String)
 	 */
 	public void setValue(String value) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		try {
 			this.uri = SipFactoryImpl.addressFactory.createURI(value);
 			if(this.uri instanceof Parameters) {
@@ -412,6 +437,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @see javax.servlet.sip.SipURI#removeHeader(java.lang.String)
 	 */
 	public void removeHeader(String name) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		//FIXME it's using jain sip RI implementation classes, it should not
 		((SipURIExt)getSipURI()).removeHeader(name);
 	}
@@ -462,6 +490,9 @@ public class SipURIImpl extends URIImpl implements SipURI {
 	 * @param isModifiable the isModifiable to set
 	 */
 	public void setIsModifiable(ModifiableRule isModifiable) {
+		if(isModifiable == ModifiableRule.NotModifiable) {
+			throw new IllegalArgumentException("This URI instance is not modifiable.");
+		}
 		this.isModifiable = isModifiable;
 	}
 
