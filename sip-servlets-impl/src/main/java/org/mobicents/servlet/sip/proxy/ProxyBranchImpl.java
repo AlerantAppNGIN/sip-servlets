@@ -1335,12 +1335,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	 */
 	public void setRecurse(boolean isRecurse) {
 		recurse = isRecurse;
-	}	
-	
-	private void checkSessionValidity() {
-		if(this.originalRequest.getSipSession().isValidInternal() && this.originalRequest.getSipSession().getSipApplicationSession().isValidInternal())
-			return;
-		throw new IllegalStateException("Invalid session.");
 	}
 
 	/**
