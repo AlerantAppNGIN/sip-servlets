@@ -1590,7 +1590,7 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 						if(tad.getProxyBranch() != null) {
 							tad.getProxyBranch().removeTransaction(branchId);
 						}
-
+						
 						// Issue 1333 : B2buaHelper.getPendingMessages(linkedSession, UAMode.UAC) returns empty list
 						// don't remove the transaction on terminated state for INVITE Tx because it won't be possible
 						// to create the ACK on second leg for B2BUA apps
@@ -1612,6 +1612,14 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 									if(removeTx) {
 										if(b2buaHelperImpl != null && tad.getSipServletMessage() instanceof SipServletRequestImpl) {
 											b2buaHelperImpl.unlinkOriginalRequestInternal((SipServletRequestImpl)tad.getSipServletMessage(), false);
+										}
+										ProxyImpl proxy = (ProxyImpl) sipSession.getProxy();
+										if (proxy != null) {
+											proxy.removeTransaction(branchId);
+											ProxyBranchImpl pb = (ProxyBranchImpl) proxy.getFinalBranchForSubsequentRequests();
+											if (pb != null) {
+												pb.removeTransaction(branchId);
+											}
 										}
 										sipSession.removeOngoingTransaction(transaction);
 										// Issue 1468 : to handle forking, we shouldn't cleanup the app data since it is needed for the forked responses

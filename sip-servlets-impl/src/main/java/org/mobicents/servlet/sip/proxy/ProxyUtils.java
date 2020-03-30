@@ -451,11 +451,26 @@ public class ProxyUtils {
 		SipServletRequestImpl originalRequest =
 			(SipServletRequestImpl) proxy.getOriginalRequest();
 		
-		if(Request.PRACK.equals(sipServetResponse.getMethod())) {
-			originalRequest =
-				(SipServletRequestImpl) proxyBranch.getPrackOriginalRequest();
+		// in case of a parallel PRACK, INFO, ... and INVITE transaction, proxy.originalRequest might point to the INVITE request of the last arrived
+		// INVITE response when the PRACK response arrives, so make sure to check if this is still the matching request by comparing the methods
+		if (originalRequest != null) {
+			if (originalRequest.getMethod().equals(sipServetResponse.getMethod())) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("createProxiedResponse found matching originalRequest in proxy");
+				}
+			} else {
+				// nullify instead of setting a bad value, caller method will retrieve it from somewhere else (e.g. proxy ongoing transactions)
+				originalRequest = null;
+				if (logger.isDebugEnabled()) {
+					logger.debug("createProxiedResponse failed to find matching originalRequest in proxy");
+				}
+			}
+		} else {
+			if (logger.isDebugEnabled()) {
+				logger.debug("createProxiedResponse found no originalRequest in proxy");
+			}
 		}
-		// TODO drop prackoriginalrequest and get orig request like this? ((org.mobicents.servlet.sip.message.TransactionApplicationData)transaction.getApplicationData()).getSipServletMessage();
+
 		SipServletResponseImpl newServletResponseImpl = null;
 		
 		if(transaction != null && originalRequest != null) {

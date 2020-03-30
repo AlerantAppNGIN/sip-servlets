@@ -577,12 +577,7 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 						if(finalBranch != null) {
 							proxy.setAckReceived(requestMethod.equalsIgnoreCase(Request.ACK));
 							checkRequestURIForNonCompliantAgents(finalBranch, request);
-							// Delayed PRACK arriving after 200:INV, if 200:INV arrives too quickly after 18x:INV
-							if(isPrack) {
-								((ProxyBranchImpl)finalBranch).setPrackOriginalRequest(sipServletRequest);
-							} else {
-								proxy.setOriginalRequest(sipServletRequest);
-							}
+							proxy.setOriginalRequest(sipServletRequest);
 							// if(!isAckRetranmission) { // We should pass the ack retrans (implied by 10.2.4.1 Handling 2xx Responses to INVITE)
 							// emmartins: JSR 289 10.2.8 - ACKs for non-2xx final responses are just dropped 
 							if(callServlet) {
@@ -597,10 +592,6 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 							for(ProxyBranch pb : branches) {
 
 								final ProxyBranchImpl proxyBranch = (ProxyBranchImpl) pb;
-
-								if (isPrack) {
-									proxyBranch.setPrackOriginalRequest(sipServletRequest);
-								}
 
 								//Issue: https://code.google.com/p/mobicents/issues/detail?id=2264
 								String requestToTag = ((RequestExt)request).getToHeader().getTag();

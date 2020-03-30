@@ -51,8 +51,6 @@ public interface MobicentsProxyBranch extends ProxyBranch, ProxyBranchExt {
 
 	void cancelTimer();
 
-	MobicentsSipServletRequest getPrackOriginalRequest();
-
 	void setResponse(MobicentsSipServletResponse sipServletResponse);
 	/**
 	 * A callback. Here we receive all responses from the proxied requests we have sent.

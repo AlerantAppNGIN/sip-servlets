@@ -96,7 +96,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private transient SipServletRequestImpl originalRequest;
 	/** Reference to the original INVITE, only used for correct generation of CANCEL when cancel() is called on the proxy. */
 	private transient SipServletRequestImpl originalBranchRequest;
-	private transient SipServletRequestImpl prackOriginalRequest;
 	// From javadoc : object representing the request that is or to be proxied.
 	private transient SipServletRequestImpl outgoingRequest;
 	private transient SipServletResponseImpl lastResponse;
@@ -124,7 +123,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	private boolean canceled;
 	private boolean isAddToPath;
 	private transient List<ProxyBranch> recursedBranches;
-	private boolean waitingForPrack;
 	private String fromTag;
 	private String toTag;
 	// https://telestax.atlassian.net/browse/MSS-153 not needing to store it
@@ -637,12 +635,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 					throw new DispatcherException("Unexpected exception while processing response : " + response, e);
 				}
 			}
-
-			// Deterimine if the response is reliable. We just look at RSeq, because
-			// every such response is required to have it.
-			if(response.getHeader("RSeq") != null) {
-				this.setWaitingForPrack(true); // this branch is expecting a PRACK now
-			}
 			
 			final SipServletResponseImpl proxiedResponse = 
 				ProxyUtils.createProxiedResponse(response, this);
@@ -759,7 +751,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	public boolean isTimedOut() {
 		return timedOut;
 	}
-	
+
 	// https://code.google.com/p/sipservlets/issues/detail?id=238
 	public void addTransaction(SipServletRequestImpl request) {
         if(!request.getMethod().equalsIgnoreCase("ACK") && !request.getMethod().equalsIgnoreCase("PRACK")) {
@@ -789,7 +781,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 						+ " ### originalRequest:\n" + this.originalRequest
 						+ " ### originalBranchRequest:\n" + this.originalBranchRequest
 						+ " ### outgoingRequest:\n" + this.outgoingRequest
-						+ " ### prackOriginalRequest:\n" + this.prackOriginalRequest
 						);
 			}
 		}
@@ -824,13 +815,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			ret = true;
 			if (logger.isDebugEnabled()) {
 				logger.debug("Removed outgoingRequest for branch " + branch + " from proxybranch");
-			}
-		}
-		if(matchesBranch(prackOriginalRequest, branch)) {
-			prackOriginalRequest = null;
-			ret = true;
-			if (logger.isDebugEnabled()) {
-				logger.debug("Removed prackOriginalRequest for branch " + branch + " from proxybranch");
 			}
 		}
 		return ret;
@@ -999,9 +983,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		final MobicentsSipApplicationSession sipAppSession = sipSession.getSipApplicationSession();
 		// Update the last proxied request
 		request.setRoutingState(RoutingState.PROXIED);
-		if(request.getMethod().equals(Request.PRACK)) {
-			setPrackOriginalRequest(request);
-		}
 				
 		URI targetURI = null; 
 		String targetURIString = null; 
@@ -1338,28 +1319,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 	}
 
 	/**
-	 * @param prackOriginalRequest the prackOriginalRequest to set
-	 */
-	public void setPrackOriginalRequest(SipServletRequestImpl prackOriginalRequest) {
-		this.prackOriginalRequest = prackOriginalRequest;
-	}
-
-	/**
-	 * @return the prackOriginalRequest
-	 */
-	public SipServletRequestImpl getPrackOriginalRequest() {
-		return prackOriginalRequest;
-	}
-
-	public boolean isWaitingForPrack() {
-		return waitingForPrack;
-	}
-
-	public void setWaitingForPrack(boolean waitingForPrack) {
-		this.waitingForPrack = waitingForPrack;
-	}
-
-	/**
 	 * @param proxy the proxy to set
 	 */
 	public void setProxy(ProxyImpl proxy) {
@@ -1377,7 +1336,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		proxyBranch1xxTimeout = in.readInt();
 		canceled = in.readBoolean();
 		isAddToPath = in.readBoolean();
-		waitingForPrack = in.readBoolean();
 		appSpecifiedRecordRoutingEnabled = in.readBoolean();
 	}
 
@@ -1390,7 +1348,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		out.writeInt(proxyBranch1xxTimeout);
 		out.writeBoolean(canceled);
 		out.writeBoolean(isAddToPath);
-		out.writeBoolean(waitingForPrack);
 		out.writeBoolean(appSpecifiedRecordRoutingEnabled);
 	}
 	
