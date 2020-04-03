@@ -122,7 +122,7 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 	 * @param initialRemoteHostAddress the initialRemoteHostAddress to set
 	 */
 	public void setInitialRemoteHostAddress(String initialRemoteHostAddress) {
-		this.initialRemoteHostAddress = initialRemoteHostAddress;
+		this.initialRemoteHostAddress = initialRemoteHostAddress.intern();
 	}
 	/**
 	 * @return the initialRemoteHostAddress
@@ -146,7 +146,7 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 	 * @param initialRemoteTransport the initialRemoteTransport to set
 	 */
 	public void setInitialRemoteTransport(String initialRemoteTransport) {
-		this.initialRemoteTransport = initialRemoteTransport;
+		this.initialRemoteTransport = initialRemoteTransport.intern();
 	}
 	/**
 	 * @return the initialRemoteTransport
