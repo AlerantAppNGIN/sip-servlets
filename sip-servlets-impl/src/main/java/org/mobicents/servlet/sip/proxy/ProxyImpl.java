@@ -1270,4 +1270,11 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 	public boolean isAppSpecifiedRecordRoutingEnabled() {
 		return appSpecifiedRecordRoutingEnabled;
 	}
+	
+	public void onRegularTransactionCompleted(SipServletResponse resp){
+		// e.g. PRACK / UPDATE answer arrived
+		if(originalRequest != null && originalRequest.getMethod().equals(resp.getMethod())) {
+			originalRequest = null;
+		}
+	}
 }

@@ -357,38 +357,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		}
 		recursedBranches.add(branch);
 	}
-
-	/**
-	 * from the given request in param, find the current corresponding matching forwarded orginal request
-	 * For a given ACK by example, there might be an UPDATE in between which make the outgoing requet not the INVITE one and can mess up
-	 * the branch id generation for the ACK (200 OK would have had the same branch id as UPDATE) 
-	 */
-	public SipServletRequestImpl getMatchingRequest(
-			SipServletRequestImpl request) {
-		if(request.getMethod().equals(Request.ACK)) {
-			Iterator<TransactionApplicationData> ongoingTransactions = proxy.getTransactionMap().values().iterator();
-			// Issue 1837 http://code.google.com/p/mobicents/issues/detail?id=1837
-			// ACK was received by JAIN-SIP but was not routed to application
-			// we need to go through the set of all ongoing tx since and INFO request can be received before a reINVITE tx has been completed
-			if(ongoingTransactions != null) {
-				if(logger.isDebugEnabled()) {
-                    logger.debug("going through all tx to check if we have the matching request to the ACK for branchId");
-                }
-				while (ongoingTransactions.hasNext()) {
-					TransactionApplicationData transactionApplicationData = ongoingTransactions.next();					
-					final SipServletMessageImpl sipServletMessage = transactionApplicationData.getSipServletMessage();
-					if(sipServletMessage != null && sipServletMessage instanceof SipServletRequestImpl && 
-							((MessageExt)request.getMessage()).getCSeqHeader().getSeqNumber() == ((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber() && 
-							((MessageExt)request.getMessage()).getCallIdHeader().getCallId().equals(((MessageExt)sipServletMessage.getMessage()).getCallIdHeader().getCallId())) {
-						return (SipServletRequestImpl)sipServletMessage;
-					}
-				}
-			}
-			return null;
-		} else {
-			return outgoingRequest;
-		}		
-	}
 	
 	/* (non-Javadoc)
 	 * @see javax.servlet.sip.ProxyBranch#getRequest()
@@ -621,7 +589,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		// Send informational responses back immediately
 		if((status > 100 && status < 200) || (status >= 200 &&
 				(Request.PRACK.equals(response.getMethod()) || Request.INFO.equals(response.getMethod()) 
-						|| Request.UPDATE.equals(response.getMethod()))))
+						|| Request.UPDATE.equals(response.getMethod()) || Request.BYE.equals(response.getMethod()))))
 		{
 			// notify the application of provisional responses and early-dialog PRACK/INFO/UPDATE responses
 			if(proxy.getSupervised()) {
@@ -671,6 +639,28 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				&& State.EARLY.equals(response.getSipSession().getState())) {
 				
 				updateTimer(true, response.getSipApplicationSession(false));
+			}
+			
+			// cleanup on final response for non-dialog-creating transactions: app will not be called again, so lose these fields
+			if(status >= 200 && !JainSipUtils.DIALOG_CREATING_METHODS.contains(response.getMethod())) {
+				if(logger.isDebugEnabled()) {
+						logger.debug("Cleaning up ongoingTransactions, originalRequest, outgoingRequest, lastResponse and TAD after final response on non dialog creating " + response.getMethod());
+				}
+				for (Iterator<TransactionRequest> it = ongoingTransactions.iterator(); it.hasNext();) {
+					if(it.next().request == originalRequest) { // actual instance checks, no equals needed
+						it.remove();
+						break;
+					}
+				}
+				if (originalRequest == response.getSipSession().getSessionCreatingTransactionRequest()) {
+					response.getSipSession().setSessionCreatingTransactionRequest(null);
+				}
+				originalRequest.cleanUp();
+				originalRequest = null;
+				outgoingRequest.cleanUp();
+				outgoingRequest = null;
+				lastResponse.cleanUp();
+				lastResponse = null;
 			}
 			
 			if(logger.isDebugEnabled())

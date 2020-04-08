@@ -37,7 +37,6 @@ import javax.servlet.sip.SipURI;
 import javax.servlet.sip.URI;
 import javax.sip.ListeningPoint;
 import javax.sip.Transaction;
-import javax.sip.TransactionState;
 import javax.sip.address.Address;
 import javax.sip.header.Header;
 import javax.sip.header.MaxForwardsHeader;
@@ -243,24 +242,13 @@ public class ProxyUtils {
 			} 
 			final MobicentsSipApplicationSessionKey sipAppKey = originalRequest.getSipSession().getSipApplicationSession().getKey();
 			final String appName = sipFactoryImpl.getSipApplicationDispatcher().getHashFromApplicationName(sipAppKey.getApplicationName());
-			final SipServletRequestImpl proxyBranchMatchingRequest = (SipServletRequestImpl) proxyBranch.getMatchingRequest(originalRequest);
 			
 			//Add via header
 			ViaHeader viaHeader = null;
 			if(proxy.getOutboundInterface() == null) {
 				String branchId = null;
-				
-				// http://code.google.com/p/mobicents/issues/detail?id=2359
-				// ivan dubrov : TERMINATED state checking to avoid reusing the branchid for ACK to 200 
-				if(Request.ACK.equals(method) && proxyBranchMatchingRequest != null && proxyBranchMatchingRequest.getTransaction() != null
-						&& proxyBranchMatchingRequest.getTransaction().getState() != TransactionState.TERMINATED) {
-					branchId = proxyBranchMatchingRequest.getTransaction().getBranchId();
-					if(logger.isDebugEnabled()){
-						logger.debug("reusing original branch id " + branchId);
-					}
-				} else {
-					branchId = JainSipUtils.createBranch(sipAppKey.getId(),  appName);
-				}
+				// ACK to 2xx should have a regular, independent branch id, just like any in-dialog request 
+				branchId = JainSipUtils.createBranch(sipAppKey.getId(),  appName);
 				viaHeader = JainSipUtils.createViaHeader(
 						sipFactoryImpl.getSipNetworkInterfaceManager(), clonedRequest, branchId, null);
 			} else { 
@@ -272,17 +260,7 @@ public class ProxyUtils {
 					outboundTransport =  ListeningPoint.TLS;
 				}
 
-				// http://code.google.com/p/mobicents/issues/detail?id=2359
-				// ivan dubrov : TERMINATED state checking to avoid reusing the branchid for ACK to 200
-				if(Request.ACK.equals(method) && proxyBranchMatchingRequest != null && proxyBranchMatchingRequest.getTransaction() != null
-						&& proxyBranchMatchingRequest.getTransaction().getState() != TransactionState.TERMINATED) {
-					branchId = proxyBranchMatchingRequest.getTransaction().getBranchId();
-					if(logger.isDebugEnabled()){
-						logger.debug("reusing original branch id " + branchId);
-					}
-				} else {
-					branchId = JainSipUtils.createBranch(sipAppKey.getId(),  appName);
-				}
+				branchId = JainSipUtils.createBranch(sipAppKey.getId(),  appName);
 
 				viaHeader = SipFactoryImpl.headerFactory.createViaHeader(
 						proxy.getOutboundInterface().getHost(),

@@ -528,6 +528,14 @@ public class ResponseDispatcher extends MessageDispatcher {
 								proxyBranch.onResponse(sipServletResponse, status);
 								// we don't forward the response here since this has been done by the proxy
 
+								// cleanup on final response for non-invite transactions: app will not be called again, so lose these fields
+								if(status >= 200 && !JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletResponse.getMethod())) {
+									if(logger.isDebugEnabled()) {
+											logger.debug("Cleaning up proxy after final response on non dialog creating " + sipServletResponse.getMethod());
+									}
+									proxy.onRegularTransactionCompleted(sipServletResponse);
+								}
+								
 								if(status == 487 && JainSipUtils.DIALOG_CREATING_METHODS.contains(sipServletResponse.getMethod()) && proxy.allResponsesHaveArrived()) {
 									session.setState(State.TERMINATED);
 									if(logger.isDebugEnabled()) {

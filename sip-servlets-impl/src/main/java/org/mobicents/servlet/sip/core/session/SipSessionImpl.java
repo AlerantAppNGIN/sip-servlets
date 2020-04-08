@@ -1455,6 +1455,8 @@ public class SipSessionImpl implements MobicentsSipSession {
 					this.isSessionCreatingTransactionServer = message.getTransaction() instanceof ServerTransaction;
 				}
 			}
+		} else {
+			sessionCreatingTransactionRequest = null;
 		}
 		if(sessionCreatingTransactionRequest != null) {
 			if(originalMethod == null) {
@@ -1726,12 +1728,11 @@ public class SipSessionImpl implements MobicentsSipSession {
 			// Bug fix: when proxying a SUBSCRIBE, the session is not freed
 			// A SUBSCRIBE SipSession can be invalidated when a NOTIFY with header
 			// "Subscription-State: terminated" arrives
-			String ss = response.getRequest().getHeader("subscription-state");
 			if (proxy != null
 					&& "NOTIFY".equals(method)
 					&& State.CONFIRMED.equals(getState())
 					&& response.getStatus() == 200
-					&& ss.startsWith("terminated")
+					&& response.getRequest().getHeader("subscription-state").startsWith("terminated")
 					&& !receive) {
 				logger.debug("Invalidating SipSession " + getKey() + " because 200OK for a 'Subscription-State: terminated' NOTIFY has arrived and proxied.");
 				setReadyToInvalidate(true);

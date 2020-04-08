@@ -2529,9 +2529,9 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		routingRegion = null;
 		routingState = null;
 		subscriberURI = null;
-//		lastFinalResponse = null;
-//		lastInformationalResponse = null;		
 		linkedRequest = null;
+		message = null;
+		cleanUpLastResponses();
 	}
 	
 	public void cleanUpLastResponses() {

@@ -32,6 +32,7 @@ import javax.sip.address.Hop;
 
 import org.apache.log4j.Logger;
 import org.mobicents.servlet.sip.core.message.MobicentsTransactionApplicationData;
+import org.mobicents.servlet.sip.core.session.MobicentsSipSession;
 import org.mobicents.servlet.sip.core.session.MobicentsSipSessionKey;
 import org.mobicents.servlet.sip.proxy.ProxyBranchImpl;
 
@@ -92,6 +93,7 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 	public SipServletMessageImpl getSipServletMessage() {
 		return this.sipServletMessage;
 	}
+
 	/**
 	 * @return the transaction
 	 */
@@ -280,9 +282,6 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 					logger.debug("cleaning up the application data " + this + " from the sipservletmessage " + sipServletMessage);
 				}
 				sipServletMessage.cleanUp();
-				if(sipServletMessage instanceof SipServletRequestImpl) {
-					((SipServletRequestImpl)sipServletMessage).cleanUpLastResponses();
-				}
 				sipServletMessage = null;
 			}
 		}
@@ -353,8 +352,8 @@ public class TransactionApplicationData implements Serializable, MobicentsTransa
 			sipSessionKey = sessionKey;
 		}
 		return sipSessionKey;
-	}	
-	
+	}
+
 	/**
 	 * @return the sipSessionKey
 	 */
