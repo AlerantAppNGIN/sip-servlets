@@ -37,6 +37,7 @@ import javax.servlet.sip.Proxy;
 import javax.servlet.sip.ProxyBranch;
 import javax.servlet.sip.ServletParseException;
 import javax.servlet.sip.SipServletRequest;
+import javax.servlet.sip.SipServletResponse;
 import javax.servlet.sip.SipSession.State;
 import javax.servlet.sip.SipURI;
 import javax.servlet.sip.URI;
@@ -209,32 +210,39 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 
 	@Override
 	public void cancel(List<String> reasonHeaders, MobicentsSipServletRequest originalCancelRequest) {
+		if(logger.isDebugEnabled()) {
+			logger.debug("cancel " + this);
+		}
+
 		if(proxy.getAckReceived()) throw new IllegalStateException("There has been an ACK received on this branch. Can not cancel.");
 		
 		try {			
 			cancelTimer();
 			// CANCEL can only be sent if the branch was started for an INVITE transaction
 			if (this.isStarted() && !canceled && !timedOut && originalBranchRequest.getMethod().equalsIgnoreCase(Request.INVITE)) {
-				if(lastResponse != null) { /* According to SIP RFC we should send cancel only if we receive any response first*/
-					if(logger.isDebugEnabled()) {
-						logger.debug("Trying to cancel ProxyBranch with last outgoing request: " + outgoingRequest
-								+ "\n and original branch request: " + originalBranchRequest);
-					}
-					if(lastResponse.getStatus() > Response.OK && !recursedBranches.isEmpty()) {
+				SipServletRequestImpl inviteToCancel = originalBranchRequest.getLinkedRequest();
+				SipServletResponse lastFinalResponse = inviteToCancel.getLastFinalResponse();
+				if(lastFinalResponse != null) {
+					if(!recursedBranches.isEmpty()) {
 						//  Javadoc says it should throw an java.lang.IllegalStateException if the transaction has already been completed and it has no child branches
 						if(logger.isDebugEnabled()) {
-							logger.debug("lastResponse status for this branch is " + lastResponse.getStatus() + " and it has " + recursedBranches.size() + " to cancel");
+							logger.debug("lastFinalResponse status for the original INVITE is " + lastFinalResponse.getStatus() + " and branch has " + recursedBranches.size() + " recursed branches to cancel");
 						}
-						return;
+					} else {
+						logger.warn("Trying to cancel proxy branch with no recursed branches and final INVITE response: " + lastFinalResponse);
+						canceled = true;
 					}
-					
-					SipServletRequest inviteToCancel = originalBranchRequest.getLinkedRequest();
-					if (logger.isDebugEnabled()) {
-						logger.debug("Original outgoing branch request to cancel: " + inviteToCancel);
-					}
+					return;
+				}
+				SipServletResponse lastInformationalResponse = inviteToCancel.getLastInformationalResponse();
+				if(lastInformationalResponse != null) { /* According to SIP RFC we should send cancel only if we receive any response first*/
 					SIPClientTransaction tx = (SIPClientTransaction) ((SipServletRequestImpl) inviteToCancel).getTransaction();
-					if (logger.isDebugEnabled()) {
-						logger.debug("Original outgoing branch request transaction: " + tx);
+					if(logger.isDebugEnabled()) {
+						logger.debug("Trying to cancel ProxyBranch with last informational response:\n"
+								+ lastInformationalResponse
+								+ "\n for original outgoing INVITE request:\n"
+								+ inviteToCancel
+								+ "\n in transaction " + tx);
 					}
 					if (tx != null) {
 						// even if in-dialog requests such as PRACK/INFO/UPDATE were sent during the early dialog, the CANCEL is always sent
@@ -259,32 +267,23 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				} else {
 					// We dont send cancel, but we must stop the invite retrans
 					SIPClientTransaction tx = (SIPClientTransaction) originalBranchRequest.getLinkedRequest().getTransaction();
-
 					if(tx != null) {
+						if(logger.isDebugEnabled()) {
+							logger.debug("No response received yet, simply disabling retransmission timer for transaction " + tx);
+						}
 						StaticServiceHolder.disableRetransmissionTimer.invoke(tx);
-						//disableTimeoutTimer.invoke(tx);
 					} else {
 						logger.warn("Transaction is null. Can not stop retransmission, they are already dead in the branch.");
 					}
-					/*
-					try {
-						//tx.terminate();
-						// Do not terminate the tx here, because com.bea.sipservlet.tck.agents.spec.ProxyTest.testProxyCancel test is failing. If the tx
-						// is terminated 100 Trying is dropped at JSIP.
-					} catch(Exception e2) {
-						logger.error("Can not terminate transaction", e2);
-					}*/
 
 				}
 				canceled = true;
 				originalBranchRequest = null; // lose reference, it will not be used anymore
 			}
-			// FIXME: a branch should always be canceled after a call to cancel(), so why check for the method of the current request???
-			if(!this.isStarted() &&
-					(outgoingRequest.getMethod().equalsIgnoreCase(Request.INVITE) ||
-							// https://code.google.com/p/sipservlets/issues/detail?id=253
-							outgoingRequest.getMethod().equalsIgnoreCase(Request.PRACK))) {
-				canceled = true;	
+
+			// a branch that was not started yet should always be canceled after a call to cancel()
+			if(!this.isStarted()) {
+				canceled = true;
 			}
 		}
 		catch(Exception e) {
