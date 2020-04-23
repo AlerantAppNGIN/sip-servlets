@@ -2530,8 +2530,8 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		routingState = null;
 		subscriberURI = null;
 		linkedRequest = null;
-		message = null;
 		cleanUpLastResponses();
+		message = null; // message may be used for logging in cleanUpLastResponses(), only nullify afterwards
 	}
 	
 	public void cleanUpLastResponses() {

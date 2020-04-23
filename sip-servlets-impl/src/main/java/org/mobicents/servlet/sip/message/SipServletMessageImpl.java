@@ -56,6 +56,7 @@ import javax.servlet.sip.Address;
 import javax.servlet.sip.Parameterable;
 import javax.servlet.sip.ServletParseException;
 import javax.servlet.sip.SipApplicationSession;
+import javax.servlet.sip.SipServletRequest;
 import javax.servlet.sip.SipSession;
 import javax.sip.Dialog;
 import javax.sip.InvalidArgumentException;
@@ -1811,7 +1812,11 @@ public abstract class SipServletMessageImpl implements MobicentsSipServletMessag
 	 */
 	@Override
 	public String toString() {
-		return this.message.toString();
+		if(this.message!=null) {
+			return this.message.toString();
+		} else {
+			return "[" + method + " " + getClass().getSimpleName() + ", message already cleaned up]";
+		}
 	}
 
 	public TransactionApplicationData getTransactionApplicationData() {
