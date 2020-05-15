@@ -3,12 +3,12 @@
 	<parent>
 		<groupId>org.mobicents.servlet.sip</groupId>
 		<artifactId>sip-servlets-bootstrap</artifactId>
-		<version>3.0.0-tsdp-paas-minimize_mem_usage</version>
+		<version>3.0.0-tsdp-paas-20200430</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<groupId>org.mobicents.servlet.sip</groupId>
 	<artifactId>sip-servlets-annotations</artifactId>
-	<version>3.0.0-tsdp-paas-minimize_mem_usage</version>
+	<version>3.0.0-tsdp-paas-20200430</version>
 	<packaging>jar</packaging>
 	<name>Sip Servlets Specific Annotations</name>
 	<url>https://github.com/RestComm/sip-servlets</url>
