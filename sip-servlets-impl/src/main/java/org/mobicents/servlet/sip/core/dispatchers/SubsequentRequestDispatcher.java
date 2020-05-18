@@ -575,7 +575,10 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 						// the service() method of any SipServlet to handle the incoming message.
 						sipSession.updateStateOnSubsequentRequest(sipServletRequest, true);
 						if(finalBranch != null) {
-							proxy.setAckReceived(requestMethod.equalsIgnoreCase(Request.ACK));
+							if(requestMethod.equalsIgnoreCase(Request.ACK)){
+								// but once set, don't set to false on a non-ACK msg, as this effectively cancels the proxy timeout timer!
+								proxy.setAckReceived(true);
+							}
 							checkRequestURIForNonCompliantAgents(finalBranch, request);
 							proxy.setOriginalRequest(sipServletRequest);
 							// if(!isAckRetranmission) { // We should pass the ack retrans (implied by 10.2.4.1 Handling 2xx Responses to INVITE)
