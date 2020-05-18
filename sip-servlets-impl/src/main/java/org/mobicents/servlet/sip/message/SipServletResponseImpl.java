@@ -524,6 +524,9 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 				}
 			}
 			final ServerTransaction transaction = (ServerTransaction) getTransaction();
+			if(logger.isDebugEnabled()) {
+				logger.debug("getTransaction(): " + transaction);
+			}
 			 
 			// Update Session state
 			session.updateStateOnResponse(this, false);						
@@ -553,7 +556,13 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 				String txid = ((ViaHeader) message.getHeader(ViaHeader.NAME)).getBranch();
 				TransactionApplicationData tad = (TransactionApplicationData) proxy.getTransactionMap().get(txid);
 				if(logger.isDebugEnabled()) {
-					logger.debug("Trying to recover lost transaction for proxy: " + txid);
+					logger.debug("Trying to recover lost transaction data from proxy transaction map: " + txid);
+				}
+				if(tad == null && transaction != null) {
+					if(logger.isDebugEnabled()) {
+						logger.debug("Trying to recover lost originalRequest from server transaction: " + transaction);
+					}
+					tad = ((TransactionApplicationData)transaction.getApplicationData());
 				}
 				if(tad != null) {
 					if(logger.isDebugEnabled()) {
@@ -573,11 +582,10 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 			}
 			//if a response is sent for an initial request, it means that the application
 			//acted as an endpoint so a dialog must be created but only for dialog creating method
-			if(!Request.CANCEL.equals(originalRequest.getMethod())					
-					&& (RoutingState.INITIAL.equals(originalRequest.getRoutingState()) 
-							|| RoutingState.RELAYED.equals(originalRequest.getRoutingState())) 
-					&& transaction.getDialog() == null 
-					&& JainSipUtils.DIALOG_CREATING_METHODS.contains(getMethod())) {					
+			if(JainSipUtils.DIALOG_CREATING_METHODS.contains(getMethod())
+					&& originalRequest !=null
+					&& (RoutingState.INITIAL.equals(originalRequest.getRoutingState()) || RoutingState.RELAYED.equals(originalRequest.getRoutingState()))
+					&& transaction.getDialog() == null) {
 				final String transport = JainSipUtils.findTransport(transaction.getRequest());
 				final SipProvider sipProvider = sipFactoryImpl.getSipNetworkInterfaceManager().findMatchingListeningPoint(
 						transport, false).getSipProvider();
@@ -617,10 +625,10 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 //					response.getStatusCode() < Response.OK) {				
 //				originalRequest.setRoutingState(RoutingState.INFORMATIONAL_RESPONSE_SENT);				
 //			}
-			if(statusCode >= Response.OK) {				
-				originalRequest.setRoutingState(RoutingState.FINAL_RESPONSE_SENT);				
-			}
-			if(originalRequest != null) {				
+			if(originalRequest != null) {
+				if (statusCode >= Response.OK) {
+					originalRequest.setRoutingState(RoutingState.FINAL_RESPONSE_SENT);
+				}
 				originalRequest.setResponse(this);
 				if(originalRequest.getTransaction() !=  null && originalRequest.getTransaction().getApplicationData() != null && 
 						((TransactionApplicationData)originalRequest.getTransaction().getApplicationData()).getSipServletMessage() != null &&
@@ -642,7 +650,9 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 					if(logger.isDebugEnabled()) {
 						logger.debug("Sending response statelessly " + message);
 					}
-					final String transport = JainSipUtils.findTransport(((SipServletRequestImpl)this.getRequest()).getMessage());
+					// topmost Via header of received request and its response should be the same
+					javax.sip.message.Message msgForTransport = originalRequest != null ? originalRequest.getMessage() : this.getMessage();
+					final String transport = JainSipUtils.findTransport(msgForTransport);
 					final SipProvider sipProvider = sipFactoryImpl.getSipNetworkInterfaceManager().findMatchingListeningPoint(
 							transport, false).getSipProvider();
 					sipProvider.sendResponse((Response)this.message);
