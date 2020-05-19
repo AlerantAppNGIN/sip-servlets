@@ -24,6 +24,7 @@ package org.mobicents.servlet.sip.proxy;
 
 import gov.nist.javax.sip.header.Via;
 import gov.nist.javax.sip.message.MessageExt;
+import gov.nist.javax.sip.stack.SIPServerTransaction;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -820,11 +821,25 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 		// If we didn't get any response and only a timeout just return a timeout
 		if(proxyBranch.isTimedOut()) {
 			try {
-				MobicentsSipServletResponse timeoutResponse = (MobicentsSipServletResponse) originalRequest.createResponse(Response.REQUEST_TIMEOUT);
-				// https://code.google.com/p/sipservlets/issues/detail?id=263
-				timeoutResponse.setProxyBranch(proxyBranch);
+				SipServletRequest origRequest = null;
+				// try and find the initial request
+				for (Map.Entry<String, TransactionApplicationData> e : transactionMap.entrySet()) {
+					if(logger.isDebugEnabled()) {
+						logger.debug("Key: " + e.getKey() + " TAD: " + e.getValue());
+					}
+					SipServletRequestImpl req = (SipServletRequestImpl) e.getValue().getSipServletMessage();
+					if (req != null && req.isInitial() && req.getTransaction() instanceof SIPServerTransaction) {
+						origRequest = req;
+						if(logger.isDebugEnabled()) {
+							logger.debug("original initial request:\n" + origRequest);
+						}
+						break;
+					}
+				}
+				MobicentsSipServletResponse timeoutResponse = (MobicentsSipServletResponse) origRequest.createResponse(Response.REQUEST_TIMEOUT);
+				timeoutResponse.setBranchResponse(false);
 				if(logger.isDebugEnabled())
-					logger.debug("Proxy branch has timed out");
+					logger.debug("Proxy has timed out");
 				// Issue 2474 & 2475
 				if(logger.isDebugEnabled())
 					logger.debug("All responses have arrived, sending final response for parallel proxy" );
