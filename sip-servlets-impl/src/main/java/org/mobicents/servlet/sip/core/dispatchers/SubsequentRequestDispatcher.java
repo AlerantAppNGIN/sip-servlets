@@ -526,8 +526,8 @@ public class SubsequentRequestDispatcher extends RequestDispatcher {
 									final TransactionApplicationData tad = (TransactionApplicationData) transaction.getApplicationData();
 									if(tad != null) {
 										final SipServletMessageImpl sipServletMessage = tad.getSipServletMessage();
-										if(sipServletMessage != null && sipServletMessage instanceof SipServletRequestImpl && 
-												((MessageExt)request).getCSeqHeader().getSeqNumber() == ((MessageExt)sipServletMessage.getMessage()).getCSeqHeader().getSeqNumber()) {
+										MessageExt msgToCheck = sipServletMessage instanceof SipServletRequestImpl ? (MessageExt)sipServletMessage.getMessage(): null;
+										if(msgToCheck != null && ((MessageExt)request).getCSeqHeader().getSeqNumber() == msgToCheck.getCSeqHeader().getSeqNumber()) {
 											SipServletRequestImpl correspondingInviteRequest = (SipServletRequestImpl)sipServletMessage;
 											final SipServletResponse lastFinalResponse = correspondingInviteRequest.getLastFinalResponse();
 											if(logger.isDebugEnabled()) {
