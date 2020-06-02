@@ -184,6 +184,9 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 	
 	// This field is only used in CANCEL requests where we need the INVITe transaction
 	private transient Transaction inviteTransactionToCancel;
+	// CANCEL handling: flag to indicate that the request has already received a provisional response and a CANCEL may be sent
+	// if lastFinalResponse is null (after a final response, CANCEL is effectively no-op so it shouldn't be sent).
+	private boolean hasReceivedAnyProvisionalResponse;
 	
 	// needed for externalizable
 	public SipServletRequestImpl () {}
@@ -2163,20 +2166,23 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 	 * @param response the finalResponse to set
 	 */
 	public void setResponse(SipServletResponseImpl response) {		
-		if(response.getStatus() >= 200 && 
-				(lastFinalResponse == null || lastFinalResponse.getStatus() < response.getStatus())) {
-			if(logger.isDebugEnabled()) {
-				logger.debug("last final response " + response + " set on " + this);
+		if(response.getStatus() >= 200) {
+			if(lastFinalResponse == null || lastFinalResponse.getStatus() < response.getStatus()) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("last final response " + response + " set on " + this);
+				}
+				this.lastFinalResponse = response;
 			}
-			this.lastFinalResponse = response;
-		}
-		// we keep the last informational response for noPrackReceived only
-		if(containsRel100(response.getMessage()) && (response.getStatus() > 100 && response.getStatus() < 200) && 
-				(lastInformationalResponse == null || lastInformationalResponse.getStatus() < response.getStatus())) {
-			if(logger.isDebugEnabled()) {
-				logger.debug("last informational response " + lastInformationalResponse + " set on " + this);
+		} else { // status in [100,199] as <100 responses don't exist
+			hasReceivedAnyProvisionalResponse = true; // CANCEL can be sent now if needed
+			// we keep the last informational response for noPrackReceived only
+			// it should be updated with each reliable provisional response, as PRACK can time out on each new one
+			if(containsRel100(response.getMessage())) {
+				this.lastInformationalResponse = response;
+				if(logger.isDebugEnabled()) {
+					logger.debug("last informational response " + lastInformationalResponse + " set on " + this);
+				}
 			}
-			this.lastInformationalResponse = response;
 		}
 	}
 
@@ -2277,6 +2283,10 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 	 */
 	public boolean isFinalResponseGenerated() {
 		return isFinalResponseGenerated;
+	}
+
+	public boolean hasReceivedAnyProvisionalResponse() {
+		return hasReceivedAnyProvisionalResponse;
 	}
 
 	/**

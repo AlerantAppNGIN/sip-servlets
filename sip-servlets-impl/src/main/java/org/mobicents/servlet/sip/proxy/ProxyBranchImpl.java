@@ -234,13 +234,12 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 					}
 					return;
 				}
-				SipServletResponse lastInformationalResponse = inviteToCancel.getLastInformationalResponse();
-				if(lastInformationalResponse != null) { /* According to SIP RFC we should send cancel only if we receive any response first*/
+
+				/* According to SIP RFC we should send cancel only if we receive any response first*/
+				if(inviteToCancel.hasReceivedAnyProvisionalResponse()) {
 					SIPClientTransaction tx = (SIPClientTransaction) ((SipServletRequestImpl) inviteToCancel).getTransaction();
 					if(logger.isDebugEnabled()) {
-						logger.debug("Trying to cancel ProxyBranch with last informational response:\n"
-								+ lastInformationalResponse
-								+ "\n for original outgoing INVITE request:\n"
+						logger.debug("Trying to cancel ProxyBranch for original outgoing INVITE request:\n"
 								+ inviteToCancel
 								+ "\n in transaction " + tx);
 					}
