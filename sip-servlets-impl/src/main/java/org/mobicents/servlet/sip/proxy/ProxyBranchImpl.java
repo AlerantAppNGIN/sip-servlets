@@ -219,7 +219,8 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 		try {			
 			cancelTimer();
 			// CANCEL can only be sent if the branch was started for an INVITE transaction
-			if (this.isStarted() && !canceled && !timedOut && originalBranchRequest.getMethod().equalsIgnoreCase(Request.INVITE)) {
+			final String origMethod = Optional.ofNullable(originalBranchRequest).map(r -> r.getMethod()).orElse(null);
+			if (this.isStarted() && !canceled && !timedOut && Request.INVITE.equals(origMethod)) {
 				SipServletRequestImpl inviteToCancel = originalBranchRequest.getLinkedRequest();
 				SipServletResponse lastFinalResponse = inviteToCancel.getLastFinalResponse();
 				if(lastFinalResponse != null) {
@@ -653,11 +654,11 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 				if (originalRequest == response.getSipSession().getSessionCreatingTransactionRequest()) {
 					response.getSipSession().setSessionCreatingTransactionRequest(null);
 				}
-				originalRequest.cleanUp();
+				Optional.ofNullable(originalRequest).ifPresent(r -> r.cleanUp());
 				originalRequest = null;
-				outgoingRequest.cleanUp();
+				Optional.ofNullable(outgoingRequest).ifPresent(r -> r.cleanUp());
 				outgoingRequest = null;
-				lastResponse.cleanUp();
+				Optional.ofNullable(lastResponse).ifPresent(r -> r.cleanUp());
 				lastResponse = null;
 			}
 			
