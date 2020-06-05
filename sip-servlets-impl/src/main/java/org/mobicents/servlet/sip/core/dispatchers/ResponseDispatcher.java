@@ -28,6 +28,7 @@ import gov.nist.javax.sip.stack.SIPTransactionStack;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.ListIterator;
+import java.util.Optional;
 
 import javax.servlet.ServletException;
 import javax.servlet.sip.ProxyBranch;
@@ -658,16 +659,14 @@ public class ResponseDispatcher extends MessageDispatcher {
 				if(logger.isDebugEnabled()) {
 					logger.debug("dialog application data " + applicationData);
 				}
-			}		
-			if(applicationData != null) {
+			}
+			// in some yet-unknown case TAD exists but STx is missing (response after TAD.cleanup()?)
+			final ServerTransaction stx = Optional.ofNullable(applicationData).map(tad -> (ServerTransaction) tad.getTransaction()).orElse(null);
+			if(stx != null) {
 				// non retransmission case
-				final ServerTransaction serverTransaction = (ServerTransaction)
-					applicationData.getTransaction();
 				try {					
-					serverTransaction.sendResponse(newResponse);
-				} catch (SipException e) {
-					logger.error("cannot forward the response statefully" , e);
-				} catch (InvalidArgumentException e) {
+					stx.sendResponse(newResponse);
+				} catch (SipException|InvalidArgumentException e) {
 					logger.error("cannot forward the response statefully" , e);
 				}				
 			} else {
