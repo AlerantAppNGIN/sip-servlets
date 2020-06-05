@@ -821,6 +821,9 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 		// If we didn't get any response and only a timeout just return a timeout
 		if(proxyBranch.isTimedOut()) {
 			try {
+				if(logger.isDebugEnabled()) {
+					logger.debug("Proxy has timed out");
+				}
 				SipServletRequest origRequest = null;
 				// try and find the initial request
 				for (Map.Entry<String, TransactionApplicationData> e : transactionMap.entrySet()) {
@@ -836,10 +839,12 @@ public class ProxyImpl implements MobicentsProxy, Externalizable {
 						break;
 					}
 				}
+				if(origRequest == null) { // this can happen, but how? double timeout for the same proxy? timeout after cancel?
+					logger.warn("Cannot find originalRequest STx to send timeout response!");
+					return;
+				}
 				MobicentsSipServletResponse timeoutResponse = (MobicentsSipServletResponse) origRequest.createResponse(Response.REQUEST_TIMEOUT);
 				timeoutResponse.setBranchResponse(false);
-				if(logger.isDebugEnabled())
-					logger.debug("Proxy has timed out");
 				// Issue 2474 & 2475
 				if(logger.isDebugEnabled())
 					logger.debug("All responses have arrived, sending final response for parallel proxy" );
