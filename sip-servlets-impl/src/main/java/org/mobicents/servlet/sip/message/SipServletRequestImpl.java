@@ -1929,22 +1929,22 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 	public void setRoutingState(RoutingState routingState) throws IllegalStateException {
 		//JSR 289 Section 11.2.3 && 10.2.6
 		if(routingState.equals(RoutingState.CANCELLED) && 
-				(this.routingState.equals(RoutingState.FINAL_RESPONSE_SENT) || 
-						this.routingState.equals(RoutingState.PROXIED))) {
+				(RoutingState.FINAL_RESPONSE_SENT.equals(this.routingState) || RoutingState.PROXIED.equals(this.routingState))) {
 			throw new IllegalStateException("Cannot cancel final response already sent!");
 		}
-		if((routingState.equals(RoutingState.FINAL_RESPONSE_SENT)|| 
-				routingState.equals(RoutingState.PROXIED)) && this.routingState.equals(RoutingState.CANCELLED)) {
+		else if((routingState.equals(RoutingState.FINAL_RESPONSE_SENT)|| routingState.equals(RoutingState.PROXIED))
+				&& RoutingState.CANCELLED.equals(this.routingState)) {
 			throw new IllegalStateException("Cancel received and already replied with a 487!");
 		}
-		if(routingState.equals(RoutingState.SUBSEQUENT)) {
+		else if(routingState.equals(RoutingState.SUBSEQUENT)) {
 			isInitial = false;
 		}
 		// http://code.google.com/p/sipservlets/issues/detail?id=19 
 		// Retried Request are not considered as initial
-		if(routingState.equals(RoutingState.INITIAL)) {
+		else if(routingState.equals(RoutingState.INITIAL)) {
 			isInitial = true;
 		}
+
 		if(logger.isDebugEnabled()) {
 			logger.debug("setting routing state to " + routingState);
 		}
