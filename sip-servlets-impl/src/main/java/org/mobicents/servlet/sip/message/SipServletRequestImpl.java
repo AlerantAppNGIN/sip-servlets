@@ -326,7 +326,7 @@ public abstract class SipServletRequestImpl extends SipServletMessageImpl implem
 		try {
 			final Request request = (Request) this.getMessage();
 			final Response response = SipFactoryImpl.messageFactory.createResponse(
-					statusCode, request);			
+					statusCode, request);			// FIXME request is possibly null on BYE transaction timeout!
 			if(reasonPhrase!=null) {
 				response.setReasonPhrase(reasonPhrase);
 			}
