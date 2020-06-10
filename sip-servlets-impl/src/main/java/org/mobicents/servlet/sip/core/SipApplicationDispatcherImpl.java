@@ -1367,7 +1367,7 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 				public void run() {
 					try {
 						if(logger.isDebugEnabled()) {
-							logger.debug("transaction " + transaction + " timed out => " + transaction.getRequest().toString());
+							logger.debug("transaction " + transaction + " timed out => " + String.valueOf(transaction.getRequest()));
 						}
 						boolean appNotifiedOfPrackNotReceived = false;
 						// session can be null if a message was sent outside of the container by the container itself during Initial request dispatching
@@ -1393,21 +1393,22 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 			                        }
 									if(sipServletMessage instanceof SipServletRequestImpl && !timeoutEvent.isServerTransaction()) {
 										try {
-											ProxyBranchImpl proxyBranchImpl = tad.getProxyBranch();
-											if(proxyBranchImpl != null) {
-												ProxyImpl proxy = (ProxyImpl) proxyBranchImpl.getProxy();
-												if(proxy.getFinalBranchForSubsequentRequests() != null) {
-													tad.cleanUp();				
-													transaction.setApplicationData(null);
-													return;
-												}
-											}
+//											ProxyBranchImpl proxyBranchImpl = tad.getProxyBranch();
+//											if(proxyBranchImpl != null) {
+//												ProxyImpl proxy = (ProxyImpl) proxyBranchImpl.getProxy();
+//												if(proxy.getFinalBranchForSubsequentRequests() != null) {
+//													tad.cleanUp();				
+//													transaction.setApplicationData(null);
+//													return;
+//												}
+//											}
 											SipServletRequestImpl sipServletRequestImpl = (SipServletRequestImpl) sipServletMessage;
 											if(sipServletRequestImpl.visitNextHop()) {
 												return;
 											}
 											sipServletMessage.setTransaction(transaction);
-											SipServletResponseImpl response = (SipServletResponseImpl) sipServletRequestImpl.createResponse(408, null, false, true);
+											sipServletMessage.setSipSession(sipSession);
+											SipServletResponseImpl response = (SipServletResponseImpl) sipServletRequestImpl.createResponse(408, null, false, true); // FIXME possible NPE on BYE transaction timeout, servletrequest.getRequest() returns null
 											// Fix for Issue 1734
 											sipServletRequestImpl.setResponse(response);
 											MessageDispatcher.callServlet(response);
@@ -1655,7 +1656,7 @@ public class SipApplicationDispatcherImpl implements SipApplicationDispatcher, S
 			});
 		} else {
 			if(logger.isDebugEnabled()) {
-				logger.debug("TransactionApplicationData not available on the following request " + transaction.getRequest().toString());
+				logger.debug("TransactionApplicationData not available for tx " + transaction);
 			}
 			if(tad != null) {
 				tad.cleanUp();
