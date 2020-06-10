@@ -585,26 +585,23 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			return;
 		}
 		
+		final String method = response.getMethod();
+		final boolean informationalInviteResponse = status > 100 && status < 200 && Request.INVITE.equals(method);
+		// PRACK, INFO, UPDATE, BYE (, etc?)
+		final boolean finalInDialogResponse = status >= 200 && !JainSipUtils.DIALOG_CREATING_METHODS.contains(method);
+		
 		// Send informational responses back immediately
-		if((status > 100 && status < 200) || (status >= 200 &&
-				(Request.PRACK.equals(response.getMethod()) || Request.INFO.equals(response.getMethod()) 
-						|| Request.UPDATE.equals(response.getMethod()) || Request.BYE.equals(response.getMethod()))))
-		{
+		if( informationalInviteResponse || finalInDialogResponse) {
 			// notify the application of provisional responses and early-dialog PRACK/INFO/UPDATE responses
 			if(proxy.getSupervised()) {
 				try {
 					MessageDispatcher.callServlet(response);
-				} catch (ServletException e) {
-					throw new DispatcherException("Unexpected servlet exception while processing the response : " + response, e);
-				} catch (IOException e) {
-					throw new DispatcherException("Unexpected io exception while processing the response : " + response, e);
 				} catch (Throwable e) {
 					throw new DispatcherException("Unexpected exception while processing response : " + response, e);
 				}
 			}
 			
-			final SipServletResponseImpl proxiedResponse = 
-				ProxyUtils.createProxiedResponse(response, this);
+			final SipServletResponseImpl proxiedResponse = ProxyUtils.createProxiedResponse(response, this);
 			
 			if(proxiedResponse == null) {
 				if(logger.isDebugEnabled())
@@ -626,7 +623,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 
 				proxiedResponse.send();
 				if(logger.isDebugEnabled())
-					logger.debug("Proxy response sent out sucessfully");
+					logger.debug("Proxy response sent out successfully");
 			} catch (Exception e) {
 				logger.error("A problem occured while proxying a response", e);
 			}
@@ -641,7 +638,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			}
 			
 			// cleanup on final response for non-dialog-creating transactions: app will not be called again, so lose these fields
-			if(status >= 200 && !JainSipUtils.DIALOG_CREATING_METHODS.contains(response.getMethod())) {
+			if(finalInDialogResponse) {
 				if(logger.isDebugEnabled()) {
 						logger.debug("Cleaning up ongoingTransactions, originalRequest, outgoingRequest, lastResponse and TAD after final response on non dialog creating " + response.getMethod());
 				}
@@ -873,7 +870,7 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 //		}
 
 		// https://telestax.atlassian.net/browse/MSS-153 perf optimization : we update the timer only on non ACK
-		if(!clonedRequest.getMethod().equalsIgnoreCase(Request.ACK) ) { 
+		if(!clonedRequest.getMethod().equalsIgnoreCase(Request.ACK) && State.EARLY.equals(request.getSipSession().getState())) { 
 			updateTimer(false, request.getSipApplicationSession(false)); 
 		}
  
