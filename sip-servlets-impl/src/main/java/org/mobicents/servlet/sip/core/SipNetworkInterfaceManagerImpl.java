@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -353,8 +354,29 @@ public class SipNetworkInterfaceManagerImpl implements SipNetworkInterfaceManage
 			}
 		}
 		return listeningPoint;
-	}		
+	}
 	
+	public MobicentsExtendedListeningPoint findMatchingListeningPoint(final String ipAddress, final String transport) {
+		Objects.requireNonNull(ipAddress);
+		Objects.requireNonNull(transport);
+
+		if(logger.isTraceEnabled()) {
+			logger.trace("Looking for a ListeningPoint for transport " + transport + " and local address " + ipAddress);
+		}
+		// always at least an empty iterator for any known transport, see constructor
+		Iterator<MobicentsExtendedListeningPoint> extentdedLPiterator = transportMappingCacheMap.get(transport.toLowerCase()).iterator();
+		while (extentdedLPiterator.hasNext()) {
+			MobicentsExtendedListeningPoint extendedListeningPoint = extentdedLPiterator.next();
+			if(extendedListeningPoint.getIpAddresses().contains(ipAddress)) {
+				if(logger.isTraceEnabled()) {
+					logger.trace("Found listening point " + extendedListeningPoint);
+				}
+				return extendedListeningPoint;
+			}
+		}
+		throw new IllegalStateException("Could not find ListeningPoint for transport " + transport + " and local address " + ipAddress);
+	}
+
 	/**
 	 * Checks if the port is in the UDP-TCP port numbers (0-65355) range 
 	 * otherwise defaulting to 5060 if UDP, TCP or SCTP or to 5061 if TLS

@@ -26,6 +26,9 @@ import gov.nist.javax.sip.stack.SIPTransaction;
 import gov.nist.javax.sip.stack.SIPTransactionStack;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.Optional;
@@ -56,6 +59,7 @@ import org.mobicents.servlet.sip.annotation.ConcurrencyControlMode;
 import org.mobicents.servlet.sip.core.DispatcherException;
 import org.mobicents.servlet.sip.core.SipContext;
 import org.mobicents.servlet.sip.core.SipManager;
+import org.mobicents.servlet.sip.core.SipNetworkInterfaceManagerImpl;
 import org.mobicents.servlet.sip.core.message.MobicentsSipServletRequest;
 import org.mobicents.servlet.sip.core.message.MobicentsSipServletResponse;
 import org.mobicents.servlet.sip.core.proxy.MobicentsProxyBranch;
@@ -492,6 +496,7 @@ public class ResponseDispatcher extends MessageDispatcher {
 										callServlet(sipServletResponse);
 									}
 									forwardResponseStatefully(sipServletResponse);
+									return; // !!! both code branches below forward the response as well, we shouldn't do it twice.
 								}
 								
 
@@ -673,8 +678,11 @@ public class ResponseDispatcher extends MessageDispatcher {
 				// retransmission case
 				try {	
 					String transport = JainSipUtils.findTransport(newResponse);
-					SipProvider sipProvider = sipApplicationDispatcher.getSipNetworkInterfaceManager().findMatchingListeningPoint(
-							transport, false).getSipProvider();
+					// make sure to match local IP address to the target by using the correct listening point
+					String localAddr = findLocalSourceAddressForSending(newResponse);
+					SipProvider sipProvider = sipApplicationDispatcher.getSipNetworkInterfaceManager()
+							.findMatchingListeningPoint(localAddr,transport)
+							.getSipProvider();
 					sipProvider.sendResponse(newResponse);
 				} catch (SipException e) {
 					logger.error("cannot forward the response statelessly" , e);
@@ -691,6 +699,18 @@ public class ResponseDispatcher extends MessageDispatcher {
 		}			
 	}
 	
+	private String findLocalSourceAddressForSending(Response response) {
+		ViaHeader via = (ViaHeader) response.getHeader(ViaHeader.NAME);
+		String remoteHost = via.getHost();
+		// IP routing is irrespective of transport protocol, so we use UDP to check the source address to use
+		try (DatagramSocket tester = new DatagramSocket()){
+			tester.connect(new InetSocketAddress(remoteHost, 5060));
+			return tester.getLocalAddress().getHostAddress();
+		} catch (SocketException e) {
+			throw new RuntimeException("Failed to find local UDP source address for remote target " + remoteHost, e);
+		}
+	}
+
 	/**
 	 * This method checks if the initial remote information as specified by SIP Servlets 1.1 Section 15.7
 	 * is available. If not we add it as headers only if the next via header is for the container 

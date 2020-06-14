@@ -98,5 +98,16 @@ public interface SipNetworkInterfaceManager {
 	MobicentsExtendedListeningPoint findMatchingListeningPoint(String host,
 			int port, String transport);
 		
-
+	/**
+	 * Retrieve the first matching ListeningPoint corresponding to the local
+	 * IP address and transport given in parameter.
+	 *
+	 * @param ipAddress the IP address
+	 * @param transport the transport
+	 * @return Retrieve the first matching listening point corresponding to the IP address and transport, irrespective of port number.
+	 * If none has been found, an exception is thrown.
+	 * @throws NullPointerException if any of the parameters is null
+	 * @throws RuntimeException is no matching ListeningPoint is found
+	 */
+	MobicentsExtendedListeningPoint findMatchingListeningPoint(String host,	String transport);
 }
