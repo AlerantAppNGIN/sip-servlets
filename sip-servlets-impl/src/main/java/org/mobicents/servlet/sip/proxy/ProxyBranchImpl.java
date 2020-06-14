@@ -610,6 +610,8 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 			}
 			
 			try {
+				// TODO FIXME: in some cases the transaction is not found in the ongoingTransactions map below,
+				// e.g. if. PRACK response arrives after a parallel INFO (also maybe UPDATE) request from the other side
 				String branch = ((Via)proxiedResponse.getMessage().getHeader(Via.NAME)).getBranch();
 				synchronized(this.ongoingTransactions) {
 					for(TransactionRequest tr : this.ongoingTransactions) {
@@ -620,7 +622,6 @@ public class ProxyBranchImpl implements MobicentsProxyBranch, Externalizable {
 						}
 					}
 				}
-
 				proxiedResponse.send();
 				if(logger.isDebugEnabled())
 					logger.debug("Proxy response sent out successfully");

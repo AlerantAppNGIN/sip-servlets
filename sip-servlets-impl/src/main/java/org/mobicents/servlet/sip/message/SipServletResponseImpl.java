@@ -28,6 +28,9 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.PrintWriter;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -653,8 +656,10 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 					// topmost Via header of received request and its response should be the same
 					javax.sip.message.Message msgForTransport = originalRequest != null ? originalRequest.getMessage() : this.getMessage();
 					final String transport = JainSipUtils.findTransport(msgForTransport);
-					final SipProvider sipProvider = sipFactoryImpl.getSipNetworkInterfaceManager().findMatchingListeningPoint(
-							transport, false).getSipProvider();
+					// make sure to match local IP address to the target by using the correct listening point
+					String localAddr = findLocalSourceAddressForSending((Response)this.message);
+					final SipProvider sipProvider = sipFactoryImpl.getSipNetworkInterfaceManager()
+							.findMatchingListeningPoint(localAddr,transport).getSipProvider();
 					sipProvider.sendResponse((Response)this.message);
 				} else if(sendReliably) {
 					if(logger.isDebugEnabled()) {
@@ -695,6 +700,19 @@ public abstract class SipServletResponseImpl extends SipServletMessageImpl imple
 			throw new IllegalStateException("an exception occured when sending the response " + message, e);
 		}
 	}
+
+	public static String findLocalSourceAddressForSending(Response response) {
+		ViaHeader via = (ViaHeader) response.getHeader(ViaHeader.NAME);
+		String remoteHost = via.getHost();
+		// IP routing is irrespective of transport protocol, so we use UDP to check the source address to use
+		try (DatagramSocket tester = new DatagramSocket()){
+			tester.connect(new InetSocketAddress(remoteHost, 5060));
+			return tester.getLocalAddress().getHostAddress();
+		} catch (SocketException e) {
+			throw new RuntimeException("Failed to find local UDP source address for remote target " + remoteHost, e);
+		}
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * @see javax.servlet.sip.SipServletResponse#getChallengeRealms()

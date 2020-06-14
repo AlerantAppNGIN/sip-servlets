@@ -676,10 +676,10 @@ public class ResponseDispatcher extends MessageDispatcher {
 				}				
 			} else {
 				// retransmission case
-				try {	
+				try { // TODO maybe refactor: remove this and just call sipServletResponse.send() which would also take care of provider selection if there's no transaction
 					String transport = JainSipUtils.findTransport(newResponse);
 					// make sure to match local IP address to the target by using the correct listening point
-					String localAddr = findLocalSourceAddressForSending(newResponse);
+					String localAddr = SipServletResponseImpl.findLocalSourceAddressForSending(newResponse);
 					SipProvider sipProvider = sipApplicationDispatcher.getSipNetworkInterfaceManager()
 							.findMatchingListeningPoint(localAddr,transport)
 							.getSipProvider();
@@ -697,18 +697,6 @@ public class ResponseDispatcher extends MessageDispatcher {
 						"It was either an endpoint or a B2BUA, ie an endpoint too " + response);
 			}
 		}			
-	}
-	
-	private String findLocalSourceAddressForSending(Response response) {
-		ViaHeader via = (ViaHeader) response.getHeader(ViaHeader.NAME);
-		String remoteHost = via.getHost();
-		// IP routing is irrespective of transport protocol, so we use UDP to check the source address to use
-		try (DatagramSocket tester = new DatagramSocket()){
-			tester.connect(new InetSocketAddress(remoteHost, 5060));
-			return tester.getLocalAddress().getHostAddress();
-		} catch (SocketException e) {
-			throw new RuntimeException("Failed to find local UDP source address for remote target " + remoteHost, e);
-		}
 	}
 
 	/**
