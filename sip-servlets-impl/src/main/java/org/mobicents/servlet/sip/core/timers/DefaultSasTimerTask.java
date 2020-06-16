@@ -21,6 +21,7 @@ package org.mobicents.servlet.sip.core.timers;
 
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 import org.mobicents.servlet.sip.core.SipContext;
@@ -38,17 +39,23 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 	
 	private static final Logger logger = Logger.getLogger(DefaultSasTimerTask.class);
 	
-	private MobicentsSipApplicationSession sipApplicationSession;
+	private AtomicReference<MobicentsSipApplicationSession> sipApplicationSessionRef = new AtomicReference<>();
 	
 	protected transient ScheduledFuture<MobicentsSipApplicationSession> expirationTimerFuture;
 	
 	public DefaultSasTimerTask(MobicentsSipApplicationSession mobicentsSipApplicationSession) {
-		this.sipApplicationSession = mobicentsSipApplicationSession;
+		sipApplicationSessionRef.set(mobicentsSipApplicationSession);
 	}
 	
-	@SuppressWarnings("unchecked")
 	public void run() {	
 		try {
+			MobicentsSipApplicationSession sipApplicationSession = sipApplicationSessionRef.get();
+			if(sipApplicationSession == null) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("SipApplicationSessionTimerTask running for already null sip application session, not doing anything");
+				}
+				return;
+			}
 			if(logger.isDebugEnabled()) {
 				logger.debug("initial kick off of SipApplicationSessionTimerTask running for sip application session " + sipApplicationSession.getId());
 			}
@@ -75,26 +82,26 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 				sipApplicationSession.setExpirationTimerTask(expirationTimerTask);
 				sipContext.getSipApplicationSessionTimerService().schedule(expirationTimerTask, sleep, TimeUnit.MILLISECONDS);
 			} else {
-				tryToExpire();
+				tryToExpire(sipApplicationSession);
 			}
 		} catch (Throwable t) {
 			logger.error("Timer problem", t);
 		}
 	}
 
-	private void tryToExpire() {
-		final SipContext sipContext = getSipApplicationSession().getSipContext();
-		sipContext.enterSipApp(getSipApplicationSession(), null, false, true);
+	private void tryToExpire(MobicentsSipApplicationSession sipApplicationSession) {
+		final SipContext sipContext = sipApplicationSession.getSipContext();
+		sipContext.enterSipApp(sipApplicationSession, null, false, true);
 		boolean batchStarted = sipContext.enterSipAppHa(true);
 		try {
-			getSipApplicationSession().setExpirationTimerTask(null);
-			getSipApplicationSession().notifySipApplicationSessionListeners(SipApplicationSessionEventType.EXPIRATION);
+			sipApplicationSession.setExpirationTimerTask(null);
+			sipApplicationSession.notifySipApplicationSessionListeners(SipApplicationSessionEventType.EXPIRATION);
 			//It is possible that the application grant an extension to the lifetime of the session, thus the sip application
 			//should not be treated as expired.
 			if(getDelay() <= 0) {
-				getSipApplicationSession().setExpired(true);
-				if(getSipApplicationSession().isValidInternal()) {			
-					getSipApplicationSession().invalidate(true);				
+				sipApplicationSession.setExpired(true);
+				if(sipApplicationSession.isValidInternal()) {			
+					sipApplicationSession.invalidate(true);				
 				}
 			} else {
 				// Issue 1773 : http://code.google.com/p/mobicents/issues/detail?id=1773 
@@ -116,7 +123,7 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 //					}
 //				} else {
 					if(logger.isDebugEnabled()) {
-						if(getSipApplicationSession().getExpirationTimerTask() != null) {
+						if(sipApplicationSession.getExpirationTimerTask() != null) {
 							logger.debug("expiration timer task is non null so the application has extended the session lifetime directly through setExpires");
 						}
 					}
@@ -124,12 +131,13 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 			}
 		} finally {							
 			sipContext.exitSipAppHa(null, null, batchStarted);
-			sipContext.exitSipApp(getSipApplicationSession(), null);
+			sipContext.exitSipApp(sipApplicationSession, null);
 			setSipApplicationSession(null);
 		}
 	}				
 	
 	public long getDelay() {
+		MobicentsSipApplicationSession sipApplicationSession = sipApplicationSessionRef.get();
 		if(sipApplicationSession != null) {
 			return sipApplicationSession.getExpirationTimeInternal() - System.currentTimeMillis();
 		}
@@ -143,14 +151,14 @@ public class DefaultSasTimerTask implements SipApplicationSessionTimerTask {
 	 * @param sipApplicationSession the sipApplicationSession to set
 	 */
 	public void setSipApplicationSession(MobicentsSipApplicationSession sipApplicationSession) {
-		this.sipApplicationSession = sipApplicationSession;
+		this.sipApplicationSessionRef.set(sipApplicationSession);
 	}
 
 	/**
 	 * @return the sipApplicationSession
 	 */
 	public MobicentsSipApplicationSession getSipApplicationSession() {
-		return sipApplicationSession;
+		return sipApplicationSessionRef.get();
 	}
 
 	public void setScheduledFuture(ScheduledFuture<MobicentsSipApplicationSession> schedule) {
